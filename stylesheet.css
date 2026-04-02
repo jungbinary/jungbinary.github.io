@@ -240,6 +240,20 @@ span.highlight {
   color: #555555;
 }
 
+.publication-summary-lead {
+  margin-top: 10px;
+}
+
+.publication-equation {
+  margin-top: 10px;
+  color: #444444;
+  overflow-x: auto;
+}
+
+.publication-note {
+  margin-top: 8px;
+}
+
 .reading-notes-groups {
   margin-top: 10px;
 }
