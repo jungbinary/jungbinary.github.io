@@ -109,6 +109,24 @@ h2 {
   font-size: 32px;
 }
 
+.intro-photo {
+  width: 28%;
+  max-width: 28%;
+  padding: 2.5%;
+  vertical-align: middle;
+}
+
+.intro-photo-image {
+  display: block;
+  width: 100%;
+  max-width: 140px;
+  height: auto;
+  margin-left: auto;
+  border-radius: 8px;
+  border: 1px solid #ebebeb;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
 .one {
   width: 160px;
   height: 160px;
