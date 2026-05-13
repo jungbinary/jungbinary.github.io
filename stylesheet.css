@@ -280,7 +280,6 @@ span.highlight {
   font-size: 16px;
   font-weight: 600;
 }
-
 @media (max-width: 640px) {
   .intro-text {
     display: block;
