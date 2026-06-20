@@ -72,6 +72,7 @@ a {
 
 :root {
   --site-font: 'Figtree', Verdana, Helvetica, sans-serif;
+  --body-font-size: 16px;
 }
 
 a:focus,
@@ -87,8 +88,8 @@ tr,
 p,
 a {
   font-family: var(--site-font);
-  font-size: 14px;
-  line-height: 1.35;
+  font-size: var(--body-font-size);
+  line-height: 1.45;
 }
 
 strong {
@@ -101,12 +102,12 @@ h2 {
   margin: 0;
   font-weight: normal;
   font-family: var(--site-font);
-  font-size: 22px;
+  font-size: 24px;
 }
 
 .papertitle {
   font-family: var(--site-font);
-  font-size: 14px;
+  font-size: var(--body-font-size);
   font-weight: 700;
 }
 
@@ -114,18 +115,18 @@ h2 {
   padding-top: 20px;
   margin: 0 0 14px 0;
   font-family: var(--site-font);
-  font-size: 30px;
+  font-size: 34px;
 }
 
 .tagline {
   margin: 0 0 6px 0;
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .email-line {
   margin: 0 0 14px 0;
   color: #aaaaaa;
-  font-size: 14px;
+  font-size: var(--body-font-size);
 }
 
 .contact-row {
@@ -140,13 +141,13 @@ h2 {
   align-items: center;
   gap: 4px;
   color: #2454c6;
-  font-size: 14px;
+  font-size: var(--body-font-size);
   line-height: 1.25;
 }
 
 .pill-link i {
   color: #777777;
-  font-size: 12px;
+  font-size: 14px;
   transition: color .15s ease;
 }
 
@@ -237,7 +238,7 @@ span.highlight {
   grid-column: 1;
   grid-row: 1;
   margin-bottom: 0;
-  font-size: 21px;
+  font-size: 24px;
   font-weight: 300;
 }
 
@@ -282,27 +283,27 @@ span.highlight {
 
 .entry-title {
   display: block;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
 }
 
 .entry-date {
   display: block;
   color: #000000;
-  font-size: 14px;
+  font-size: var(--body-font-size);
   white-space: nowrap;
 }
 
 .entry-subtitle {
   margin-top: 2px;
-  font-size: 14px;
+  font-size: var(--body-font-size);
 }
 
 .entry-list {
   margin: 4px 0 0 0;
   padding-left: 20px;
   color: #000000;
-  font-size: 14px;
+  font-size: var(--body-font-size);
 }
 
 .entry-list li {
@@ -314,7 +315,7 @@ span.highlight {
   gap: 3px;
   margin-top: 6px;
   color: #000000;
-  font-size: 14px;
+  font-size: var(--body-font-size);
 }
 
 .entry-detail {
@@ -327,12 +328,12 @@ span.highlight {
 .entry-detail i {
   width: 14px;
   color: #777777;
-  font-size: 11px;
+  font-size: 13px;
   text-align: center;
 }
 
 .publication-title {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
 }
 
@@ -360,13 +361,13 @@ span.highlight {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 14px;
+  font-size: var(--body-font-size);
   line-height: 1.25;
 }
 
 .pub-link i {
   color: #777777;
-  font-size: 12px;
+  font-size: 14px;
   transition: color .15s ease;
 }
 
@@ -399,12 +400,13 @@ span.highlight {
   justify-content: space-between;
   gap: 16px;
   color: #000000;
-  font-size: small;
+  font-size: 15px;
 }
 
 .footer-updated,
 .footer-copyright {
   margin: 0;
+  font-size: inherit;
 }
 
 .footer-updated {
@@ -425,7 +427,7 @@ span.highlight {
 }
 
 .detail-label {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
 }
 
