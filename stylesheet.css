@@ -365,6 +365,21 @@ span.highlight {
   line-height: 1.25;
 }
 
+button.pub-link {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #2454c6;
+  font-family: var(--site-font);
+  cursor: pointer;
+}
+
+button.pub-link:hover,
+button.pub-link:focus {
+  color: #173b91;
+}
+
 .pub-link i {
   color: #777777;
   font-size: 14px;
@@ -377,6 +392,15 @@ span.highlight {
 
 .publication-venue {
   font-style: italic;
+}
+
+.publication-abstract {
+  margin-top: 8px;
+  color: #333333;
+  font-size: var(--body-font-size);
+  font-style: italic;
+  line-height: 1.45;
+  text-align: justify;
 }
 
 .publication-summary,
