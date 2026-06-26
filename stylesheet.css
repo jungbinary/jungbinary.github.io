@@ -283,13 +283,20 @@ span.highlight {
 
 .entry-title {
   display: block;
-  font-size: var(--body-font-size);
+  font-size: 17px;
   font-weight: 600;
 }
 
 .entry-date {
   display: block;
   color: #000000;
+  font-size: var(--body-font-size);
+  white-space: nowrap;
+}
+
+.entry-location {
+  display: block;
+  color: #555555;
   font-size: var(--body-font-size);
   white-space: nowrap;
 }
@@ -333,7 +340,7 @@ span.highlight {
 }
 
 .publication-title {
-  font-size: var(--body-font-size);
+  font-size: 17px;
   font-weight: 600;
 }
 
@@ -475,6 +482,10 @@ button.pub-link:focus {
   }
 
   .entry-date {
+    margin-top: 2px;
+  }
+
+  .entry-location {
     margin-top: 2px;
   }
 }
