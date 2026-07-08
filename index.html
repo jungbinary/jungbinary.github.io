@@ -18,18 +18,39 @@
     <meta name="author" content="Jungbin Jun">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="google-site-verification" content="SSDsp-zlQNbaudw2xXZiJGgd4tecbTb9ALBDyH5NEpY">
+    <script>
+      (function () {
+        try {
+          var savedTheme = localStorage.getItem('jungbin-theme');
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          document.documentElement.dataset.theme = savedTheme || (prefersDark ? 'dark' : 'light');
+        } catch (error) {
+          document.documentElement.dataset.theme = 'light';
+        }
+      })();
+    </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
     <link rel="stylesheet" type="text/css" href="stylesheet.css">
   </head>
 
   <body>
-    <table style="width:100%;max-width:840px;border:0px;border-spacing:0px;border-collapse:separate;margin-right:auto;margin-left:auto;"><tbody>
+    <table style="width:100%;max-width:720px;border:0px;border-spacing:0px;border-collapse:separate;margin-right:auto;margin-left:auto;"><tbody>
       <tr style="padding:0px">
         <td style="padding:0px">
+          <nav class="site-tabs" aria-label="Primary">
+            <a class="site-tab active" href="index.html" aria-current="page">about</a>
+            <span class="site-tab" style="cursor: not-allowed; opacity: 0.4;" title="CV will be available soon">cv</span>
+            <button class="theme-toggle" type="button" aria-label="turn on dark mode">
+              <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M20.5 14.4A7.4 7.4 0 0 1 9.6 3.5A8.8 8.8 0 1 0 20.5 14.4Z"></path>
+              </svg>
+            </button>
+          </nav>
+
           <table style="width:100%;border:0px;border-spacing:0px;border-collapse:separate;margin-right:auto;margin-left:auto;"><tbody>
             <tr style="padding:0px">
-              <td class="intro-text" style="padding:2.5%;width:72%;vertical-align:middle;text-align:left;">
+              <td class="intro-text" style="padding:2.5%;width:100%;vertical-align:middle;text-align:left;">
                 <p class="name" style="margin-bottom: 18px;">
                   Jungbin Jun
                 </p>
@@ -44,11 +65,6 @@
                   <a class="pill-link" href="https://scholar.google.com/citations?user=cQP3I7kAAAAJ&amp;hl=ko&amp;oi=ao"><i class="ai ai-google-scholar"></i>Scholar</a>
                   <a class="pill-link" href="https://www.linkedin.com/in/jungbinary"><i class="fab fa-linkedin"></i>LinkedIn</a>
                   <a class="pill-link" href="https://github.com/jungbinary"><i class="fab fa-github"></i>Github</a>
-                </div>
-              </td>
-              <td class="intro-photo">
-                <div class="intro-photo-frame">
-                  <img src="images/image_jun.JPG" alt="Profile photo" class="intro-photo-image">
                 </div>
               </td>
             </tr>
@@ -76,7 +92,7 @@
                   with the broader aim of developing <strong>trustworthy AI</strong> with rigorous statistical guarantees.
                 </p>
                 <!-- <p>
-                  More details can be found in my <a href="data/Jungbin_Jun_CV.pdf">CV</a>.
+                  More details can be found in my <a href="data/jungbin_cv.pdf">CV</a>.
                 </p> -->
               </td>
             </tr>
@@ -95,7 +111,7 @@
           <table class="content-table"><tbody>
             <tr>
               <td class="publication-cell">
-                <div class="publication-title">Adaptive Online Bayesian Inference via Expert Aggregation</div>
+                <div class="publication-title">Adaptive Bayesian Online Learning via Expert Aggregation</div>
                 <div class="publication-authors"><span class="publication-name-underline">Jungbin Jun</span>, Ilsang Ohn</div>
                 <div class="publication-venue">In preparation, 2026</div>
               </td>
@@ -383,6 +399,36 @@
           abstract.hidden = isExpanded;
         });
       });
+
+      (function () {
+        var toggle = document.querySelector('.theme-toggle');
+        if (!toggle) {
+          return;
+        }
+
+        var moonIcon = '<svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.4A7.4 7.4 0 0 1 9.6 3.5A8.8 8.8 0 1 0 20.5 14.4Z"></path></svg>';
+        var sunIcon = '<svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"></circle><path d="M12 2.8v2.1M12 19.1v2.1M4.9 4.9l1.5 1.5M17.6 17.6l1.5 1.5M2.8 12h2.1M19.1 12h2.1M4.9 19.1l1.5-1.5M17.6 6.4l1.5-1.5"></path></svg>';
+
+        function setTheme(theme, shouldSave) {
+          var isDark = theme === 'dark';
+          document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+          toggle.setAttribute('aria-label', isDark ? 'turn off dark mode' : 'turn on dark mode');
+          toggle.innerHTML = isDark ? sunIcon : moonIcon;
+
+          if (shouldSave) {
+            try {
+              localStorage.setItem('jungbin-theme', isDark ? 'dark' : 'light');
+            } catch (error) {}
+          }
+        }
+
+        setTheme(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light', false);
+
+        toggle.addEventListener('click', function () {
+          var nextTheme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+          setTheme(nextTheme, true);
+        });
+      })();
     </script>
   </body>
 </html>
