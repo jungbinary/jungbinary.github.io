@@ -83,7 +83,7 @@ a {
   --line-color: #e6e4dd;
   --photo-border-color: #e6e4dd;
   --highlight-color: rgba(137, 137, 222, 0.3);
-  --abstract-color: #2c2c2c;
+  --abstract-color: #737373;
   --panel-bg: #e8e7e1;
 }
 
@@ -103,7 +103,7 @@ html[data-theme="dark"] {
   --line-color: #444444;
   --photo-border-color: #444444;
   --highlight-color: rgba(137, 137, 222, 0.3);
-  --abstract-color: #f4eee1;
+  --abstract-color: #a8a096;
   --panel-bg: #1f1f1d;
   color-scheme: dark;
 }
