@@ -452,7 +452,8 @@ span.highlight {
 }
 
 .entry-details {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 3px;
   margin-top: 6px;
   color: var(--text-color);
@@ -462,8 +463,8 @@ span.highlight {
 .entry-detail {
   display: flex;
   align-items: center;
-  gap: 7px;
-  line-height: 1.35;
+  gap: 10px;
+  line-height: 1.5;
 }
 
 .entry-detail i {
