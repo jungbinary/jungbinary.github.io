@@ -4,11 +4,19 @@ import SiteHeader from '../components/SiteHeader.astro'
 import '../styles/site.css'
 import '../styles/components.css'
 
+const lastUpdatedAt = import.meta.env.LAST_UPDATED_AT || new Date().toISOString()
+const defaultLastUpdated = new Intl.DateTimeFormat('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  timeZone: 'Asia/Seoul',
+}).format(new Date(lastUpdatedAt))
+
 const {
   title = 'Jungbin Jun',
   description = 'Jungbin Jun — incoming M.S. student at POSTECH researching trustworthy AI and conformal prediction.',
   activePage = 'about',
-  lastUpdated,
+  lastUpdated = defaultLastUpdated,
   math = false,
   type = 'website',
 } = Astro.props

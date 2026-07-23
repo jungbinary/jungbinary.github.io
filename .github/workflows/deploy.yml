@@ -31,6 +31,8 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Set last updated timestamp
+        run: echo "LAST_UPDATED_AT=$(git log -1 --format=%cI)" >> "$GITHUB_ENV"
       - name: Validate and build
         run: npm run check
       - name: Configure Pages
