@@ -1,0 +1,126 @@
+---
+import SiteFooter from '../components/SiteFooter.astro'
+import SiteHeader from '../components/SiteHeader.astro'
+import '../styles/site.css'
+import '../styles/components.css'
+
+const {
+  title = 'Jungbin Jun',
+  description = 'Jungbin Jun — incoming M.S. student at POSTECH researching trustworthy AI and conformal prediction.',
+  activePage = 'about',
+  lastUpdated,
+  math = false,
+  type = 'website',
+} = Astro.props
+
+const fullTitle = title === 'Jungbin Jun' ? title : `${title} - Jungbin Jun`
+const canonicalUrl = new URL(Astro.url.pathname, Astro.site)
+const socialImageUrl = new URL('/og.png', Astro.site)
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="author" content="Jungbin Jun" />
+    <meta name="description" content={description} />
+    <meta
+      name="google-site-verification"
+      content="SSDsp-zlQNbaudw2xXZiJGgd4tecbTb9ALBDyH5NEpY"
+    />
+    <meta property="og:type" content={type} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={socialImageUrl} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={socialImageUrl} />
+    <link rel="canonical" href={canonicalUrl} />
+    <title>{fullTitle}</title>
+
+    <script is:inline>
+      (() => {
+        try {
+          const savedTheme = localStorage.getItem('jungbin-theme')
+          const prefersDark = window.matchMedia?.(
+            '(prefers-color-scheme: dark)',
+          ).matches
+          document.documentElement.dataset.theme =
+            savedTheme || (prefersDark ? 'dark' : 'light')
+        } catch {
+          document.documentElement.dataset.theme = 'light'
+        }
+      })()
+    </script>
+
+    <script
+      is:inline
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-5SS15L5BV9"
+    ></script>
+    <script is:inline>
+      window.dataLayer = window.dataLayer || []
+      function gtag() {
+        window.dataLayer.push(arguments)
+      }
+      gtag('js', new Date())
+      gtag('config', 'G-5SS15L5BV9')
+    </script>
+    {
+      math && (
+        <script
+          is:inline
+          defer
+          src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"
+        />
+      )
+    }
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css"
+    />
+  </head>
+  <body>
+    <div class="site-shell">
+      <SiteHeader activePage={activePage} />
+      <main>
+        <slot />
+      </main>
+      <SiteFooter lastUpdated={lastUpdated} />
+    </div>
+
+    <script is:inline>
+      (() => {
+        const toggle = document.querySelector('.theme-toggle')
+        if (!(toggle instanceof HTMLButtonElement)) return
+
+        const updateLabel = () => {
+          const isDark = document.documentElement.dataset.theme === 'dark'
+          toggle.setAttribute(
+            'aria-label',
+            isDark ? 'turn off dark mode' : 'turn on dark mode',
+          )
+        }
+
+        updateLabel()
+        toggle.addEventListener('click', () => {
+          const nextTheme =
+            document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'
+          document.documentElement.dataset.theme = nextTheme
+          updateLabel()
+
+          try {
+            localStorage.setItem('jungbin-theme', nextTheme)
+          } catch {}
+        })
+      })()
+    </script>
+  </body>
+</html>

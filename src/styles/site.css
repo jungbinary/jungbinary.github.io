@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,600&display=swap');
 
 /* latin-ext */
 @font-face {
@@ -165,7 +165,7 @@ h2 {
   margin: 0 0 6px 0;
   font-size: 18px;
   font-weight: 400;
-  color: var(--muted-color);
+  color: color-mix(in srgb, var(--muted-color) 82%, var(--text-color));
 }
 
 .email-line {
@@ -279,6 +279,12 @@ span.highlight {
   color: var(--link-hover-color);
 }
 
+.site-tab.disabled,
+.site-tab.disabled:hover {
+  color: var(--nav-color);
+  cursor: not-allowed;
+}
+
 .site-tab.active {
   color: var(--link-color);
 }
@@ -335,6 +341,18 @@ span.highlight {
 .theme-icon-moon {
   fill: currentColor;
   stroke: none;
+}
+
+.theme-icon-sun {
+  display: none;
+}
+
+html[data-theme="dark"] .theme-icon-moon {
+  display: none;
+}
+
+html[data-theme="dark"] .theme-icon-sun {
+  display: block;
 }
 
 .colored-box {
@@ -691,4 +709,28 @@ button.pub-link:focus {
   .entry-location {
     margin-top: 2px;
   }
+}
+
+/* Blog search and filter styling */
+#search-bar {
+  transition: border-color 0.15s ease;
+}
+#search-bar:focus {
+  border-color: var(--link-color) !important;
+}
+.post-link {
+  color: var(--link-color);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.post-link:hover {
+  color: var(--link-hover-color);
+  text-decoration: underline;
+}
+
+/* Custom scaling for Academicons to align with FontAwesome */
+.pub-link i.ai,
+.pill-link i.ai {
+  font-size: 16px;
+  vertical-align: -1px;
 }

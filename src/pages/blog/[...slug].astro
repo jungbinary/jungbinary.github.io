@@ -1,0 +1,50 @@
+---
+import { getCollection, render } from 'astro:content'
+import BaseLayout from '../../layouts/BaseLayout.astro'
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog', ({ data }) => !data.draft)
+
+  return posts.map((post) => ({
+    params: { slug: post.id },
+    props: { post },
+  }))
+}
+
+const { post } = Astro.props
+const { Content, remarkPluginFrontmatter } = await render(post)
+const location = post.data.location ?? remarkPluginFrontmatter.location
+---
+
+<BaseLayout
+  title={post.data.title}
+  description={post.data.description}
+  activePage="blog"
+  lastUpdated={post.data.updated}
+  math
+  type="article"
+>
+  <article class="blog-page">
+    <header class="blog-hero">
+      <h1>{post.data.title}</h1>
+      <div class="blog-post-meta">
+        {location && <span>{location}</span>}
+        {location && <span aria-hidden="true">·</span>}
+        <time datetime={post.data.date.toISOString().slice(0, 10)}>
+          {post.data.displayDate}
+        </time>
+      </div>
+    </header>
+
+    <div class="blog-section blog-post-body">
+      <Content />
+
+      <div class="back-to-posts">
+        <a href="/blog/" class="pill-link">
+          <i class="fa fa-arrow-left" aria-hidden="true"></i>
+          Back to Posts
+        </a>
+      </div>
+    </div>
+  </article>
+</BaseLayout>

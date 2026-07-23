@@ -1,0 +1,20 @@
+---
+const { id, title } = Astro.props
+---
+
+<table class="section-table">
+  <tbody>
+    <tr>
+      <td class="section-heading-cell">
+        <div class="section-heading">
+          <h2 id={id} class="section-title">{title}</h2>
+        </div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+<table class="content-table">
+  <tbody>
+    <slot />
+  </tbody>
+</table>

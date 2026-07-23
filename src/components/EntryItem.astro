@@ -1,0 +1,62 @@
+---
+type EntryDetail = {
+  iconClass: string
+  text: string
+  link?: {
+    label: string
+    href: string
+  }
+}
+
+type Entry = {
+  title: string
+  subtitle?: string
+  date?: string
+  location?: string
+  details?: EntryDetail[]
+  items?: string[]
+}
+
+const { entry } = Astro.props as { entry: Entry }
+---
+
+<tr>
+  <td class="entry-cell">
+    <div class="entry-header">
+      <div class="entry-main">
+        <span class="entry-title">{entry.title}</span>
+        {entry.subtitle && <div class="entry-subtitle">{entry.subtitle}</div>}
+      </div>
+      <div class="entry-meta">
+        {entry.date && <span class="entry-date">{entry.date}</span>}
+        {entry.location && (
+          <span class="entry-location">{entry.location}</span>
+        )}
+      </div>
+    </div>
+    {
+      entry.details && (
+        <div class="entry-details">
+          {entry.details.map((detail) => (
+            <div class="entry-detail">
+              <i class={detail.iconClass} aria-hidden="true" />
+              <span>
+                {detail.text}
+                {detail.link && (
+                  <a href={detail.link.href}>{detail.link.label}</a>
+                )}
+              </span>
+            </div>
+          ))}
+        </div>
+      )
+    }
+    {
+      entry.items && (
+        <ul class="entry-list">
+          {entry.items.map((item) => <li>{item}</li>)}
+        </ul>
+      )
+    }
+  </td>
+</tr>

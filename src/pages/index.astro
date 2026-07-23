@@ -1,0 +1,101 @@
+---
+import EntryItem from '../components/EntryItem.astro'
+import PublicationItem from '../components/PublicationItem.astro'
+import Section from '../components/Section.astro'
+import {
+  awards,
+  contacts,
+  education,
+  experience,
+  publications,
+} from '../data/siteData'
+import BaseLayout from '../layouts/BaseLayout.astro'
+---
+
+<BaseLayout
+  title="Jungbin Jun"
+  activePage="about"
+  lastUpdated="June 26, 2026"
+>
+  <section class="intro-text">
+    <p class="name">Jungbin Jun</p>
+    <p class="tagline">Incoming M.S. Student @ POSTECH</p>
+    <p class="email-line">jungbjun (at) naver (dot) com</p>
+    <div class="contact-row">
+      {
+        contacts.map((contact) => (
+          <a class="pill-link" href={contact.href}>
+            <i class={contact.iconClass} aria-hidden="true" />
+            {contact.label}
+          </a>
+        ))
+      }
+    </div>
+  </section>
+
+  <Section id="profile" title="Profile">
+    <tr>
+      <td class="entry-cell profile-cell">
+        <p>
+          I will be joining Prof. <a href="https://sangdon.github.io/"
+            >Sangdon Park</a
+          >’s group in Fall 2026.
+        </p>
+        {/* <p>
+          I am an M.S. student in Artificial Intelligence at <a
+            href="https://www.postech.ac.kr/eng/index.do">POSTECH</a
+          >, advised by Prof. <a href="https://sangdon.github.io/"
+            >Sangdon Park</a
+          >. Before joining POSTECH, I was fortunate to work with Prof. <a
+            href="https://sites.google.com/view/iohn/home">Ilsang Ohn</a
+          >, who set me on the path to research.
+        </p> */}
+        <p>
+          My research focuses on reliable learning under uncertainty, with the
+          broader goal of developing <strong>trustworthy AI</strong> with
+          rigorous statistical guarantees.
+        </p>
+        <p>My current research interests include:</p>
+        <ul class="entry-list">
+          <li>Conformal Prediction and Abstention</li>
+          <li>Online Bayesian Learning and Variational Inference</li>
+          <li>Contextual Bandits and Safe Reinforcement Learning</li>
+        </ul>
+      </td>
+    </tr>
+  </Section>
+
+  <Section id="publications" title="Publications">
+    {publications.map((publication) => <PublicationItem {publication} />)}
+  </Section>
+
+  <Section id="education" title="Education">
+    {education.map((entry) => <EntryItem {entry} />)}
+  </Section>
+
+  <Section id="experience" title="Experience">
+    {experience.map((entry) => <EntryItem {entry} />)}
+  </Section>
+
+  <Section id="honors-awards" title="Honors and Awards">
+    {awards.map((entry) => <EntryItem {entry} />)}
+  </Section>
+
+  <script>
+    document.querySelectorAll('.abstract-toggle').forEach((button) => {
+      if (!(button instanceof HTMLButtonElement)) return
+
+      button.addEventListener('click', () => {
+        const abstractId = button.getAttribute('aria-controls')
+        const abstract = abstractId
+          ? document.getElementById(abstractId)
+          : null
+        if (!abstract) return
+
+        const isExpanded = button.getAttribute('aria-expanded') === 'true'
+        button.setAttribute('aria-expanded', String(!isExpanded))
+        abstract.hidden = isExpanded
+      })
+    })
+  </script>
+</BaseLayout>

@@ -1,0 +1,62 @@
+---
+import { getCollection } from 'astro:content'
+import BaseLayout from '../../layouts/BaseLayout.astro'
+
+const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
+)
+---
+
+<BaseLayout
+  title="Blog"
+  description="Blog posts by Jungbin Jun."
+  activePage="blog"
+  lastUpdated="July 12, 2026"
+>
+  <div class="blog-page blog-index-page">
+    <div class="blog-hero blog-index-hero">
+      <h1>blog</h1>
+    </div>
+
+    <div class="blog-search-wrap">
+      <div class="blog-search-field">
+        <i class="fa fa-search" aria-hidden="true"></i>
+        <label class="visually-hidden" for="search-bar">Search posts</label>
+        <input id="search-bar" type="search" placeholder="search posts..." />
+      </div>
+    </div>
+
+    <ul class="blog-post-list">
+      {
+        posts.map((post) => (
+          <li
+            class="post-item"
+            data-post-item
+            data-title={post.data.title.toLowerCase()}
+          >
+            <span>{post.data.displayDate}</span>
+            <a href={`/blog/${post.id}/`} class="post-link">
+              {post.data.title}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+
+  <script>
+    const searchInput = document.querySelector('#search-bar')
+
+    if (searchInput instanceof HTMLInputElement) {
+      searchInput.addEventListener('input', () => {
+        const query = searchInput.value.trim().toLowerCase()
+
+        document.querySelectorAll('[data-post-item]').forEach((item) => {
+          if (!(item instanceof HTMLElement)) return
+          const title = item.dataset.title || ''
+          item.hidden = !title.includes(query)
+        })
+      })
+    }
+  </script>
+</BaseLayout>

@@ -1,0 +1,73 @@
+---
+type Author = {
+  name: string
+  self?: boolean
+}
+
+type PublicationLink = {
+  label: string
+  href: string
+  iconClass: string
+}
+
+type Publication = {
+  id: string
+  title: string
+  authors: Author[]
+  venue: string
+  abstract?: string
+  links?: PublicationLink[]
+}
+
+const { publication } = Astro.props as { publication: Publication }
+const abstractId = `abstract-${publication.id}`
+---
+
+<tr>
+  <td class="publication-cell">
+    <div class="publication-title">{publication.title}</div>
+    <div class="publication-authors">
+      {
+        publication.authors.map((author, index) => (
+          <>
+            {index > 0 && ', '}
+            <span class={author.self ? 'publication-name-underline' : undefined}>
+              {author.name}
+            </span>
+          </>
+        ))
+      }
+    </div>
+    <div class="publication-venue">{publication.venue}</div>
+    {
+      (publication.abstract || publication.links) && (
+        <div class="publication-links">
+          {publication.abstract && (
+            <button
+              class="pub-link abstract-toggle"
+              type="button"
+              aria-expanded="false"
+              aria-controls={abstractId}
+            >
+              <i class="fa fa-align-left" aria-hidden="true" />
+              abstract
+            </button>
+          )}
+          {publication.links?.map((link) => (
+            <a class="pub-link" href={link.href}>
+              <i class={link.iconClass} aria-hidden="true" />
+              {link.label}
+            </a>
+          ))}
+        </div>
+      )
+    }
+    {
+      publication.abstract && (
+        <div class="publication-abstract" id={abstractId} hidden>
+          {publication.abstract}
+        </div>
+      )
+    }
+  </td>
+</tr>

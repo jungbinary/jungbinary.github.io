@@ -1,0 +1,71 @@
+---
+const { activePage = 'about' } = Astro.props
+const currentPath = Astro.url.pathname
+
+type NavItem = {
+  id: string
+  label: string
+  href?: string
+  target?: '_blank'
+  disabled?: boolean
+}
+
+const items: NavItem[] = [
+  { id: 'about', label: 'about', href: '/' },
+  {
+    id: 'cv',
+    label: 'cv',
+    disabled: true,
+  },
+  // { id: 'blog', label: 'blog', href: '/blog/' },
+]
+---
+
+<nav class="site-tabs" aria-label="Primary">
+  {
+    items.map((item) =>
+      item.disabled ? (
+        <span class="site-tab disabled" aria-disabled="true">
+          {item.label}
+        </span>
+      ) : item.id === activePage && item.href === currentPath ? (
+        <span class="site-tab active" aria-current="page">
+          {item.label}
+        </span>
+      ) : (
+        <a
+          class:list={['site-tab', { active: item.id === activePage }]}
+          href={item.href}
+          target={item.target}
+          rel={item.target ? 'noreferrer' : undefined}
+        >
+          {item.label}
+        </a>
+      ),
+    )
+  }
+  <button
+    class="theme-toggle"
+    type="button"
+    aria-label="turn on dark mode"
+  >
+    <svg
+      class="theme-icon theme-icon-moon"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path d="M20.5 14.4A7.4 7.4 0 0 1 9.6 3.5A8.8 8.8 0 1 0 20.5 14.4Z"
+      ></path>
+    </svg>
+    <svg
+      class="theme-icon theme-icon-sun"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="4.2"></circle>
+      <path
+        d="M12 2.8v2.1M12 19.1v2.1M4.9 4.9l1.5 1.5M17.6 17.6l1.5 1.5M2.8 12h2.1M19.1 12h2.1M4.9 19.1l1.5-1.5M17.6 6.4l1.5-1.5"
+      ></path>
+    </svg>
+  </button>
+</nav>
