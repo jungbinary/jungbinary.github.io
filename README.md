@@ -1,4 +1,4 @@
-# Jungbin Jun
+# jungbinary.github.io
 
 Personal academic website built with Astro.
 
