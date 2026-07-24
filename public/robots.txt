@@ -1,3 +1,2 @@
 User-agent: *
 Disallow: /images/image_jun.JPG
-Disallow: /data/
