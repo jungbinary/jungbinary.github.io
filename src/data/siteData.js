@@ -1,7 +1,7 @@
 export const contacts = [
   {
     label: 'Email',
-    href: 'mailto:jungbjun@naver.com',
+    href: 'mailto:jungbjun@postech.ac.kr',
     iconClass: 'fa fa-envelope',
   },
   {
@@ -15,7 +15,7 @@ export const contacts = [
     iconClass: 'fab fa-linkedin',
   },
   {
-    label: 'Github',
+    label: 'GitHub',
     href: 'https://github.com/jungbinary',
     iconClass: 'fab fa-github',
   },
@@ -101,22 +101,22 @@ export const publications = [
 ]
 
 export const education = [
-  /* {
+  {
     title: 'Pohang University of Science and Technology',
     subtitle: 'M.S. in Artificial Intelligence',
-    date: 'Sep 2026 – Present',
+    date: 'Sep 2026 - Present',
     location: 'Pohang, KR',
     details: [
       {
         iconClass: 'fa fa-user-tie',
-        text: 'Advisor : ',
+        text: 'Advisor: ',
         link: {
           label: 'Sangdon Park',
           href: 'https://sangdon.github.io',
         },
       },
     ],
-  }, */
+  },
   {
     title: 'Inha University',
     subtitle: 'B.S. in Statistics',
@@ -125,7 +125,7 @@ export const education = [
     details: [
       {
         iconClass: 'fa fa-award',
-        text: 'Grade: 4.42 / 4.5 \u00A0(Rank: 1/41, Major: 4.48)',
+        text: 'Grade: 4.42 / 4.5 (Rank: 1/41, Major: 4.48)',
       },
       {
         iconClass: 'fa fa-graduation-cap',
@@ -133,7 +133,7 @@ export const education = [
       },
       {
         iconClass: 'fa fa-user-tie',
-        text: 'Advisor : ',
+        text: 'Advisor: ',
         link: {
           label: 'Ilsang Ohn',
           href: 'https://sites.google.com/view/iohn/home',

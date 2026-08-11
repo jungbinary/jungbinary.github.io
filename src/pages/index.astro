@@ -18,8 +18,8 @@ import BaseLayout from '../layouts/BaseLayout.astro'
 >
   <section class="intro-text">
     <p class="name">Jungbin Jun</p>
-    <p class="tagline">Incoming M.S. Student @ POSTECH</p>
-    <p class="email-line">jungbjun (at) naver (dot) com</p>
+    <p class="tagline">M.S. Student @ POSTECH</p>
+    <p class="email-line">jungbjun (at) postech.ac.kr</p>
     <div class="contact-row">
       {
         contacts.map((contact) => (
@@ -35,33 +35,16 @@ import BaseLayout from '../layouts/BaseLayout.astro'
   <Section id="profile" title="Profile">
     <tr>
       <td class="entry-cell profile-cell">
-        {/* <p>
-          I will be joining Prof. <a href="https://sangdon.github.io/"
-            >Sangdon Park</a
-          >’s group in Fall 2026. Before that, I was fortunate to work with
-          Prof. <a href="https://sites.google.com/view/iohn/home">Ilsang Ohn</a
-          >, who taught me how to think as a researcher.
-        </p> */}
-        {/* <p>
-          I am an M.S. student in Artificial Intelligence at <a
-            href="https://www.postech.ac.kr/eng/index.do">POSTECH</a
+        <p>
+          Hi, I am an M.S. student at <a
+            href="https://postech.ac.kr">POSTECH</a
           >, advised by Prof. <a href="https://sangdon.github.io/"
             >Sangdon Park</a
-          >. Before joining POSTECH, I was fortunate to work with Prof. <a
-            href="https://sites.google.com/view/iohn/home">Ilsang Ohn</a
-          >, who set me on the path to research.
-        </p> */}
-        <p>
-          My research focuses on reliable learning under uncertainty, with the
-          broader goal of developing <strong>trustworthy AI</strong> with
-          rigorous statistical guarantees.
+          > in the <a href="https://ml.postech.ac.kr/">Machine Learning Lab</a>.
+          My research focuses on reliable learning under uncertainty, toward
+          the broader goal of developing <strong>trustworthy AI systems</strong>{' '}
+          with rigorous statistical guarantees.
         </p>
-        <p>My current research interests include:</p>
-        <ul class="entry-list">
-          <li>Conformal Prediction and Abstention</li>
-          <li>Online Bayesian Learning and Variational Inference</li>
-          <li>Contextual Bandits and Safe Reinforcement Learning</li>
-        </ul>
       </td>
     </tr>
   </Section>
