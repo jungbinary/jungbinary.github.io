@@ -104,10 +104,11 @@
 }
 
 .post-item > span {
-  width: 100px;
+  width: 120px;
   flex-shrink: 0;
   color: var(--muted-color);
   font-size: 15px;
+  white-space: nowrap;
 }
 
 .post-item .post-link {
@@ -117,6 +118,12 @@
 
 .blog-post-body {
   border-bottom: 0;
+}
+
+[data-copy-protected] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .blog-post-meta {
@@ -131,6 +138,10 @@
 .blog-post-meta span,
 .blog-post-meta time {
   font-size: inherit;
+}
+
+.blog-post-meta .blog-topic {
+  color: var(--link-color);
 }
 
 .blog-post-body > .blog-line {

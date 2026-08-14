@@ -14,6 +14,7 @@ export async function getStaticPaths() {
 const { post } = Astro.props
 const { Content, remarkPluginFrontmatter } = await render(post)
 const location = post.data.location ?? remarkPluginFrontmatter.location
+const topics = post.data.topics ?? []
 ---
 
 <BaseLayout
@@ -24,15 +25,27 @@ const location = post.data.location ?? remarkPluginFrontmatter.location
   math
   type="article"
 >
-  <article class="blog-page">
+  <article class="blog-page" data-copy-protected>
     <header class="blog-hero">
       <h1>{post.data.title}</h1>
       <div class="blog-post-meta">
+        {post.data.author && <span>{post.data.author}</span>}
+        {post.data.author && <span aria-hidden="true">·</span>}
         {location && <span>{location}</span>}
         {location && <span aria-hidden="true">·</span>}
         <time datetime={post.data.date.toISOString().slice(0, 10)}>
           {post.data.displayDate}
         </time>
+        {
+          topics.length > 0 && (
+            <span aria-hidden="true">·</span>
+          )
+        }
+        {
+          topics.map((topic) => (
+            <span class="blog-topic">#{topic}</span>
+          ))
+        }
       </div>
     </header>
 
@@ -47,4 +60,16 @@ const location = post.data.location ?? remarkPluginFrontmatter.location
       </div>
     </div>
   </article>
+
+  <script>
+    const protectedPost = document.querySelector('[data-copy-protected]')
+
+    protectedPost?.addEventListener('copy', (event) => {
+      event.preventDefault()
+    })
+
+    protectedPost?.addEventListener('cut', (event) => {
+      event.preventDefault()
+    })
+  </script>
 </BaseLayout>
