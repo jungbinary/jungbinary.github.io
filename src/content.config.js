@@ -16,6 +16,7 @@ const blog = defineCollection({
     author: z.string().optional(),
     location: z.string().optional(),
     topics: z.array(z.string()).default([]),
+    category: z.enum(['thoughts', 'study-notes']).default('thoughts'),
     hiddenFromIndex: z.boolean().default(false),
     draft: z.boolean().default(false),
   }),

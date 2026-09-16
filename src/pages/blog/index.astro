@@ -8,6 +8,33 @@ const posts = (
     ({ data }) => !data.draft && !data.hiddenFromIndex,
   )
 ).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+
+const shortDate = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  timeZone: 'UTC',
+})
+
+const entries = [
+  ...posts.map((post) => ({
+    title: post.data.title,
+    displayDate: shortDate.format(post.data.date),
+    date: post.data.date,
+    href: `/blog/${post.id}/`,
+    tag: (post.data.topics[0] ?? 'post').toLowerCase(),
+  })),
+  {
+    title: 'Bellman Equation',
+    displayDate: shortDate.format(new Date('2026-09-16')),
+    date: new Date('2026-09-16'),
+    href: '/notes/reinforcement-learning/',
+    tag: 'RL',
+  },
+].sort((a, b) => b.date.valueOf() - a.date.valueOf())
+
+const filters = ['all', 'RL', 'online learning']
+
 ---
 
 <BaseLayout
@@ -20,45 +47,71 @@ const posts = (
       <h1>blog</h1>
     </div>
 
-    <div class="blog-search-wrap">
-      <div class="blog-search-field">
-        <i class="fa fa-search" aria-hidden="true"></i>
-        <label class="visually-hidden" for="search-bar">Search posts</label>
-        <input id="search-bar" type="search" placeholder="search posts..." />
-      </div>
-    </div>
-
-    <ul class="blog-post-list">
+    <div class="post-filters" role="group" aria-label="Filter posts by tag">
       {
-        posts.map((post) => (
-          <li
-            class="post-item"
-            data-post-item
-            data-title={post.data.title.toLowerCase()}
+        filters.map((filter, index) => (
+          <button
+            type="button"
+            class:list={['post-filter', { active: index === 0 }]}
+            data-filter={filter.toLowerCase()}
+            aria-pressed={index === 0 ? 'true' : 'false'}
           >
-            <span>{post.data.displayDate}</span>
-            <a href={`/blog/${post.id}/`} class="post-link">
-              {post.data.title}
-            </a>
-          </li>
+            {filter}
+          </button>
         ))
       }
-    </ul>
+    </div>
+
+    <div class="post-feed" aria-live="polite">
+      {
+        entries.map((entry) => (
+          <article
+            class="post-feed-item"
+            data-post-item
+            data-tag={entry.tag.toLowerCase()}
+          >
+            <time datetime={entry.date.toISOString()}>{entry.displayDate}</time>
+            <div class="post-feed-body">
+              <span class="post-feed-tag">{entry.tag}</span>
+              <h2><a href={entry.href}>{entry.title}</a></h2>
+            </div>
+          </article>
+        ))
+      }
+      <p class="post-feed-empty" data-empty-state hidden>
+        No posts in this topic yet.
+      </p>
+    </div>
   </div>
 
   <script>
-    const searchInput = document.querySelector('#search-bar')
+    const filterButtons = document.querySelectorAll('[data-filter]')
+    const postItems = document.querySelectorAll('[data-post-item]')
+    const emptyState = document.querySelector('[data-empty-state]')
 
-    if (searchInput instanceof HTMLInputElement) {
-      searchInput.addEventListener('input', () => {
-        const query = searchInput.value.trim().toLowerCase()
+    filterButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        if (!(button instanceof HTMLButtonElement)) return
+        const filter = button.dataset.filter || 'all'
+        let visibleCount = 0
 
-        document.querySelectorAll('[data-post-item]').forEach((item) => {
-          if (!(item instanceof HTMLElement)) return
-          const title = item.dataset.title || ''
-          item.hidden = !title.includes(query)
+        filterButtons.forEach((item) => {
+          const active = item === button
+          item.classList.toggle('active', active)
+          item.setAttribute('aria-pressed', active ? 'true' : 'false')
         })
+
+        postItems.forEach((item) => {
+          if (!(item instanceof HTMLElement)) return
+          const visible = filter === 'all' || item.dataset.tag === filter
+          item.hidden = !visible
+          if (visible) visibleCount += 1
+        })
+
+        if (emptyState instanceof HTMLElement) {
+          emptyState.hidden = visibleCount !== 0
+        }
       })
-    }
+    })
   </script>
 </BaseLayout>

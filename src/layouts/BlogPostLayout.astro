@@ -1,0 +1,74 @@
+---
+import BaseLayout from './BaseLayout.astro'
+
+const {
+  title,
+  description,
+  location,
+  date,
+  displayDate,
+  topics = [],
+  lastUpdated = displayDate,
+  math = false,
+} = Astro.props
+
+const dateTime =
+  date instanceof Date ? date.toISOString().slice(0, 10) : String(date)
+const visibleDate = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  timeZone: 'UTC',
+}).format(date instanceof Date ? date : new Date(date))
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  activePage="blog"
+  lastUpdated={lastUpdated}
+  math={math}
+  type="article"
+>
+  <article class="blog-page" data-copy-protected>
+    <header class="blog-hero">
+      <h1>{title}</h1>
+      <div class="blog-post-meta">
+        {location && <span>{location}</span>}
+        {location && <span aria-hidden="true">·</span>}
+        <time datetime={dateTime}>{visibleDate}</time>
+        {topics.length > 0 && <span aria-hidden="true">·</span>}
+        {
+          topics.map((topic: string) => (
+            <span class="blog-topic">
+              #{topic === 'RL' ? topic : topic.toLowerCase()}
+            </span>
+          ))
+        }
+      </div>
+    </header>
+
+    <div class="blog-section blog-post-body">
+      <slot />
+
+      <div class="back-to-posts">
+        <a href="/blog/" class="pill-link">
+          <i class="fa fa-arrow-left" aria-hidden="true"></i>
+          Back to Posts
+        </a>
+      </div>
+    </div>
+  </article>
+
+  <script>
+    const protectedPost = document.querySelector('[data-copy-protected]')
+
+    protectedPost?.addEventListener('copy', (event) => {
+      event.preventDefault()
+    })
+
+    protectedPost?.addEventListener('cut', (event) => {
+      event.preventDefault()
+    })
+  </script>
+</BaseLayout>

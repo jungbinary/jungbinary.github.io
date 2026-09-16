@@ -2,9 +2,9 @@
 title: Bayesian Perspective of Universal Portfolios
 description: A Bayesian interpretation of universal portfolio selection and its empirical Bayes extension.
 date: 2026-08-14
-displayDate: August 14, 2026
+displayDate: Aug 14, 2026
 updated: August 14, 2026
-author: Jungbin Jun
+category: thoughts
 topics:
   - Online Learning
 draft: false
