@@ -60,7 +60,7 @@ const filters = [
             data-filter={filter.toLowerCase()}
             aria-pressed={index === 0 ? 'true' : 'false'}
           >
-            {filter}
+            {filter === 'all' ? 'all' : `#${filter}`}
           </button>
         ))
       }
@@ -76,10 +76,10 @@ const filters = [
           >
             <time datetime={entry.date.toISOString()}>{entry.displayDate}</time>
             <div class="post-feed-body">
-              <div class="post-feed-tags">
-                {entry.tags.map((tag) => <span class="post-feed-tag">{tag}</span>)}
-              </div>
               <h2><a href={entry.href}>{entry.title}</a></h2>
+              <div class="post-feed-tags">
+                {entry.tags.map((tag) => <span class="post-feed-tag">#{tag}</span>)}
+              </div>
             </div>
           </article>
         ))

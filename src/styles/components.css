@@ -48,32 +48,31 @@
 .post-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px 6px;
   padding: 22px 0;
 }
 
 .post-filter {
-  padding: 7px 14px;
-  border: 1px solid var(--line-color);
-  border-radius: 999px;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 7px;
   background: transparent;
   color: var(--muted-color);
   cursor: pointer;
   font-family: var(--site-font);
   font-size: 13px;
-  transition: background-color 0.18s ease, border-color 0.18s ease,
-    color 0.18s ease;
+  transition: background-color 0.18s ease, color 0.18s ease;
 }
 
 .post-filter:hover {
-  border-color: var(--soft-muted-color);
-  color: var(--text-color);
+  background: color-mix(in srgb, var(--panel-bg) 55%, transparent);
+  color: var(--link-color);
 }
 
 .post-filter.active {
-  border-color: var(--link-color);
-  background: var(--link-color);
-  color: var(--page-bg);
+  background: color-mix(in srgb, var(--link-color) 14%, transparent);
+  color: var(--link-color);
+  font-weight: 600;
 }
 
 .post-feed {
@@ -100,7 +99,7 @@
 }
 
 .post-feed-body h2 {
-  margin: 5px 0 0;
+  margin: 0;
   font-size: 18px;
   font-weight: 500;
   line-height: 1.35;
@@ -110,6 +109,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px 12px;
+  margin-top: 5px;
 }
 
 .post-feed-body h2 a {
