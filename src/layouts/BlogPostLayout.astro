@@ -40,9 +40,7 @@ const visibleDate = new Intl.DateTimeFormat('en-US', {
         {topics.length > 0 && <span aria-hidden="true">·</span>}
         {
           topics.map((topic: string) => (
-            <span class="blog-topic">
-              #{topic === 'RL' ? topic : topic.toLowerCase()}
-            </span>
+            <span class="blog-topic">#{topic}</span>
           ))
         }
       </div>

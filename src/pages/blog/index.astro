@@ -1,6 +1,7 @@
 ---
 import { getCollection } from 'astro:content'
 import BaseLayout from '../../layouts/BaseLayout.astro'
+import pdfPosts from '../../data/pdfPosts.json'
 
 const posts = (
   await getCollection(
@@ -22,18 +23,21 @@ const entries = [
     displayDate: shortDate.format(post.data.date),
     date: post.data.date,
     href: `/blog/${post.id}/`,
-    tag: (post.data.topics[0] ?? 'post').toLowerCase(),
+    tags: post.data.topics.length > 0 ? post.data.topics : ['post'],
   })),
-  {
-    title: 'Bellman Equation',
-    displayDate: shortDate.format(new Date('2026-09-16')),
-    date: new Date('2026-09-16'),
-    href: '/notes/reinforcement-learning/',
-    tag: 'RL',
-  },
+  ...pdfPosts.map((post) => ({
+    title: post.title,
+    displayDate: shortDate.format(new Date(post.date)),
+    date: new Date(post.date),
+    href: `/notes/${post.slug}/`,
+    tags: post.tags,
+  })),
 ].sort((a, b) => b.date.valueOf() - a.date.valueOf())
 
-const filters = ['all', 'RL', 'online learning']
+const filters = [
+  'all',
+  ...new Set(entries.flatMap((entry) => entry.tags)),
+]
 
 ---
 
@@ -68,11 +72,13 @@ const filters = ['all', 'RL', 'online learning']
           <article
             class="post-feed-item"
             data-post-item
-            data-tag={entry.tag.toLowerCase()}
+            data-tags={entry.tags.map((tag) => tag.toLowerCase()).join('|')}
           >
             <time datetime={entry.date.toISOString()}>{entry.displayDate}</time>
             <div class="post-feed-body">
-              <span class="post-feed-tag">{entry.tag}</span>
+              <div class="post-feed-tags">
+                {entry.tags.map((tag) => <span class="post-feed-tag">{tag}</span>)}
+              </div>
               <h2><a href={entry.href}>{entry.title}</a></h2>
             </div>
           </article>
@@ -103,7 +109,8 @@ const filters = ['all', 'RL', 'online learning']
 
         postItems.forEach((item) => {
           if (!(item instanceof HTMLElement)) return
-          const visible = filter === 'all' || item.dataset.tag === filter
+          const tags = (item.dataset.tags || '').split('|')
+          const visible = filter === 'all' || tags.includes(filter)
           item.hidden = !visible
           if (visible) visibleCount += 1
         })

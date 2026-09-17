@@ -1,0 +1,18 @@
+[
+  {
+    "slug": "game-blackwell",
+    "title": "From Minimax to Blackwell Approachability",
+    "description": "Study notes on minimax theory and Blackwell approachability.",
+    "date": "2026-09-17",
+    "tags": ["Game Theory", "Online Learning"],
+    "pdf": "/notes/game-blackwell.pdf"
+  },
+  {
+    "slug": "reinforcement-learning",
+    "title": "Bellman Equation",
+    "description": "Study notes on value functions and Bellman equations.",
+    "date": "2026-09-16",
+    "tags": ["RL"],
+    "pdf": "/notes/rl-bellman.pdf"
+  }
+]

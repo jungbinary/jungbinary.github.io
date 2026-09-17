@@ -1,0 +1,31 @@
+---
+import BlogPostLayout from '../../layouts/BlogPostLayout.astro'
+import PdfReader from '../../components/PdfReader.astro'
+import pdfPosts from '../../data/pdfPosts.json'
+
+export function getStaticPaths() {
+  return pdfPosts.map((post) => ({
+    params: { slug: post.slug },
+    props: { post },
+  }))
+}
+
+const { post } = Astro.props
+const displayDate = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  timeZone: 'UTC',
+}).format(new Date(post.date))
+---
+
+<BlogPostLayout
+  title={post.title}
+  description={post.description}
+  date={post.date}
+  displayDate={displayDate}
+  topics={post.tags}
+  lastUpdated={displayDate}
+>
+  <PdfReader src={post.pdf} title={post.title} />
+</BlogPostLayout>

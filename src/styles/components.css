@@ -106,6 +106,12 @@
   line-height: 1.35;
 }
 
+.post-feed-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
 .post-feed-body h2 a {
   color: var(--text-color);
 }
