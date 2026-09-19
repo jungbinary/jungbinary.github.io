@@ -34,10 +34,7 @@ const entries = [
   })),
 ].sort((a, b) => b.date.valueOf() - a.date.valueOf())
 
-const filters = [
-  'all',
-  ...new Set(entries.flatMap((entry) => entry.tags)),
-]
+const filters = ['all', ...new Set(entries.flatMap((entry) => entry.tags))]
 
 ---
 
@@ -47,9 +44,34 @@ const filters = [
   activePage="blog"
 >
   <div class="blog-page blog-index-page">
-    <div class="blog-hero blog-index-hero">
+    <header class="blog-hero blog-index-hero">
       <h1>blog</h1>
-    </div>
+      <p>
+        Beyond my current research, I am broadly interested in Information Geometry,
+        Bayesian Learning, and Game Theory. I am especially drawn to work that
+        connects seemingly distinct fields and reveals shared underlying structures
+        or new perspectives.
+      </p>
+      <p class="blog-index-references">
+        <span class="blog-index-reference-label">For example,</span>
+        <a
+          href="https://www.schapire.net/papers/FreundSc96b.pdf"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Game Theory, On-Line Prediction and Boosting"
+        >Freund &amp; Schapire, 1996</a>; <a
+          href="https://proceedings.mlr.press/v19/abernethy11b.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Blackwell Approachability and No-Regret Learning are Equivalent"
+        >Abernethy et al., 2011</a>; <a
+          href="https://www.jmlr.org/papers/v23/19-1047.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="An Optimization-centric View on Bayes' Rule: Reviewing and Generalizing Variational Inference"
+        >Knoblauch et al., 2022</a>.
+      </p>
+    </header>
 
     <div class="post-filters" role="group" aria-label="Filter posts by tag">
       {
@@ -69,11 +91,7 @@ const filters = [
     <div class="post-feed" aria-live="polite">
       {
         entries.map((entry) => (
-          <article
-            class="post-feed-item"
-            data-post-item
-            data-tags={entry.tags.map((tag) => tag.toLowerCase()).join('|')}
-          >
+          <article class="post-feed-item" data-post-item data-tags={entry.tags.map((tag) => tag.toLowerCase()).join('|')}>
             <time datetime={entry.date.toISOString()}>{entry.displayDate}</time>
             <div class="post-feed-body">
               <h2><a href={entry.href}>{entry.title}</a></h2>
@@ -84,12 +102,9 @@ const filters = [
           </article>
         ))
       }
-      <p class="post-feed-empty" data-empty-state hidden>
-        No posts in this topic yet.
-      </p>
+      <p class="post-feed-empty" data-empty-state hidden>No posts in this topic yet.</p>
     </div>
   </div>
-
   <script>
     const filterButtons = document.querySelectorAll('[data-filter]')
     const postItems = document.querySelectorAll('[data-post-item]')

@@ -20,7 +20,23 @@ const { src, title } = Astro.props
         rel="noopener nofollow"
         aria-label={`Open ${title} PDF in a new tab`}
         title="Open original PDF"
-      >↗</a>
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M14 3h7v7M21 3l-11 11" />
+          <path d="M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5" />
+        </svg>
+      </a>
     </div>
   </div>
   <div class="pdf-reader-viewport" data-pdf-pages>
