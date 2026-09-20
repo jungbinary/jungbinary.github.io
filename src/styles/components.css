@@ -59,28 +59,6 @@
   line-height: 1.85;
 }
 
-.blog-index-hero > p.blog-index-references {
-  margin: 12px 0 0;
-  color: var(--muted-color);
-  font-size: 12.5px;
-  line-height: 1.8;
-}
-
-.blog-index-reference-label {
-  margin-right: 6px;
-  font-style: italic;
-}
-
-.blog-index-references a {
-  font-size: inherit;
-  line-height: inherit;
-}
-
-.blog-index-references a:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
 .blog-index-quote {
   margin: 8px 0 0;
   padding-left: 16px;
