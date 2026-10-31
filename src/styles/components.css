@@ -1,6 +1,6 @@
 .site-shell {
   width: 100%;
-  max-width: 720px;
+  max-width: 780px;
   margin-right: auto;
   margin-left: auto;
 }
@@ -24,6 +24,10 @@
 
 .intro-text .name {
   margin-bottom: 18px;
+}
+
+.intro-with-plot {
+  position: relative;
 }
 
 .footer-wrap {

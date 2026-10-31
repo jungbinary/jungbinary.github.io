@@ -1,0 +1,342 @@
+---
+import { axes, ballFrame, ballRadius, mesh, meshOpacity, minimax, pathData, trajectory } from '../lib/minimax'
+
+const angle = minimax.initialAngle
+const initialBall = ballFrame(0, angle)
+---
+
+<figure class="minimax-plot" data-minimax-plot>
+  <button
+    class="minimax-control"
+    type="button"
+    aria-label="Pause minimax animation"
+    aria-pressed="false"
+    title="Pause animation"
+    data-minimax-control
+  >
+    <svg
+      class="minimax-svg"
+      viewBox="0 0 320 232"
+      role="img"
+      aria-labelledby="minimax-title minimax-description"
+    >
+      <title id="minimax-title">Minimax gradient flow on a rotated saddle</title>
+      <desc id="minimax-description">
+        A wireframe of f(x,y) = {minimax.mu / 2}(x² − y²) + {minimax.lambda}xy. An orange
+        descent–ascent trajectory spirals toward the equilibrium at the origin,
+        followed by a stylized matte blue ball with simple dimensional shading.
+      </desc>
+      <defs>
+        <radialGradient id="minimax-ball-shading" cx="30%" cy="25%" r="90%">
+          <stop offset="0" stop-color="var(--ball-light)" />
+          <stop offset="0.48" stop-color="var(--ball-light)" />
+          <stop offset="0.54" stop-color="var(--ball-mid)" />
+          <stop offset="0.8" stop-color="var(--ball-mid)" />
+          <stop offset="0.86" stop-color="var(--ball-shadow)" />
+          <stop offset="1" stop-color="var(--ball-shadow)" />
+        </radialGradient>
+      </defs>
+      <g class="minimax-axes">
+        {axes.map((axis) => (
+          <path d={pathData(axis.points, angle)} data-minimax-axis />
+        ))}
+      </g>
+      <g class="minimax-mesh">
+        {mesh.map((line) => (
+          <path
+            d={pathData(line.points, angle)}
+            opacity={meshOpacity(line.points, angle)}
+            class:list={{ 'minimax-central-line': line.central }}
+            data-minimax-grid
+          />
+        ))}
+      </g>
+      <path class="minimax-trajectory" d={pathData(trajectory, angle)} data-minimax-trajectory />
+      <circle class="minimax-equilibrium-ring" cx="160" cy="116" r="4" />
+      <circle class="minimax-equilibrium" cx="160" cy="116" r="1.8" />
+      <g data-minimax-ball>
+        <circle
+          class="minimax-ball-contact"
+          r={ballRadius * 1.15}
+          transform={initialBall.shadowTransform}
+          data-minimax-shadow
+        />
+        <g transform={initialBall.bodyTransform} data-minimax-ball-body>
+          <circle class="minimax-ball-sphere" r={ballRadius} />
+          <path class="minimax-ball-seam" d={initialBall.seam} data-minimax-ball-seam />
+        </g>
+      </g>
+      <g class="minimax-equilibrium-callout">
+        <path class="minimax-equilibrium-leader" d="M166 122 L226 205 H238" />
+        <text class="minimax-equilibrium-label" x="245" y="208">Equilibrium</text>
+      </g>
+    </svg>
+    <span class="minimax-playback" aria-hidden="true">
+      <svg viewBox="0 0 16 16" width="12" height="12">
+        <path class="minimax-pause-icon" d="M5 4v8M11 4v8" />
+        <path class="minimax-play-icon" d="m5 3 7 5-7 5Z" />
+      </svg>
+    </span>
+  </button>
+</figure>
+
+<script>
+  import { axes, ballFrame, mesh, meshOpacity, minimax, pathData, trajectory } from '../lib/minimax'
+
+  document.querySelectorAll<HTMLElement>('[data-minimax-plot]').forEach((plot) => {
+    const control = plot.querySelector<HTMLButtonElement>('[data-minimax-control]')
+    const gridPaths = plot.querySelectorAll<SVGPathElement>('[data-minimax-grid]')
+    const axisPaths = plot.querySelectorAll<SVGPathElement>('[data-minimax-axis]')
+    const curve = plot.querySelector<SVGPathElement>('[data-minimax-trajectory]')
+    const ball = plot.querySelector<SVGGElement>('[data-minimax-ball]')
+    const ballBody = plot.querySelector<SVGGElement>('[data-minimax-ball-body]')
+    const ballShadow = plot.querySelector<SVGCircleElement>('[data-minimax-shadow]')
+    const ballSeam = plot.querySelector<SVGPathElement>('[data-minimax-ball-seam]')
+    if (!control || !curve || !ball || !ballBody || !ballShadow || !ballSeam) return
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+    let paused = reducedMotion.matches
+    let inView = true
+    let elapsed = 0
+    let previousTime = 0
+    let lastRender = 0
+    let frame = 0
+
+    const render = () => {
+      const angle = minimax.initialAngle + elapsed * 0.065
+      gridPaths.forEach((path, index) => {
+        path.setAttribute('d', pathData(mesh[index].points, angle))
+        path.setAttribute('opacity', String(meshOpacity(mesh[index].points, angle)))
+      })
+      axisPaths.forEach((path, index) => {
+        path.setAttribute('d', pathData(axes[index].points, angle))
+      })
+      curve.setAttribute('d', pathData(trajectory, angle))
+
+      // Fade at each end of a pass so restarting never looks like reversed flow.
+      const t = (elapsed * 1.2) % minimax.duration
+      const pose = ballFrame(t, angle)
+      const visibility = Math.min(1, t / 0.45, (minimax.duration - t) / 0.7)
+      ball.style.opacity = String(visibility)
+      ballBody.setAttribute('transform', pose.bodyTransform)
+      ballShadow.setAttribute('transform', pose.shadowTransform)
+      ballSeam.setAttribute('d', pose.seam)
+    }
+
+    const tick = (now: number) => {
+      if (previousTime) elapsed += Math.min((now - previousTime) / 1000, 0.1)
+      previousTime = now
+      if (now - lastRender >= 1000 / 30) {
+        render()
+        lastRender = now
+      }
+      frame = requestAnimationFrame(tick)
+    }
+
+    const sync = () => {
+      control.setAttribute('aria-pressed', String(paused))
+      control.setAttribute('aria-label', paused ? 'Play minimax animation' : 'Pause minimax animation')
+      control.title = paused ? 'Play animation' : 'Pause animation'
+      plot.dataset.paused = String(paused)
+      if (!paused && inView && !document.hidden) {
+        if (!frame) frame = requestAnimationFrame(tick)
+      } else {
+        cancelAnimationFrame(frame)
+        frame = 0
+        previousTime = 0
+      }
+    }
+
+    control.addEventListener('click', () => {
+      paused = !paused
+      sync()
+    })
+    reducedMotion.addEventListener('change', () => {
+      paused = reducedMotion.matches
+      sync()
+    })
+    document.addEventListener('visibilitychange', sync)
+    const observer = new IntersectionObserver(([entry]) => {
+      inView = entry.isIntersecting
+      sync()
+    })
+    observer.observe(plot)
+    window.addEventListener('pagehide', () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+    }, { once: true })
+    sync()
+  })
+</script>
+
+<style>
+  .minimax-plot {
+    --plot-wire: #29466c;
+    --plot-axis: #8090a3;
+    --plot-orbit: #bb714a;
+    --ball-light: #b7c6df;
+    --ball-mid: #8da2c6;
+    --ball-shadow: #6e85ae;
+    --ball-edge: #5e7398;
+    --ball-contact: #243249;
+    position: absolute;
+    top: 36px;
+    right: 32px;
+    width: 316px;
+    margin: 0;
+  }
+
+  :global(html[data-theme='dark']) .minimax-plot {
+    --plot-wire: #adc5e5;
+    --plot-axis: #7f91a8;
+    --plot-orbit: #e9ad83;
+    --ball-light: #d3def1;
+    --ball-mid: #a8bddc;
+    --ball-shadow: #839cc4;
+    --ball-edge: #637fa7;
+    --ball-contact: #05080e;
+  }
+
+  .minimax-control {
+    position: relative;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted-color);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .minimax-control:focus-visible {
+    outline: 1px solid var(--link-color);
+    outline-offset: 3px;
+  }
+
+  .minimax-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  .minimax-svg path {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .minimax-axes path {
+    stroke: var(--plot-axis);
+    stroke-width: 0.6;
+    stroke-dasharray: 2 5;
+    opacity: 0.48;
+  }
+
+  .minimax-mesh path {
+    stroke: var(--plot-wire);
+    stroke-width: 0.65;
+  }
+
+  .minimax-mesh .minimax-central-line {
+    stroke-width: 0.9;
+  }
+
+  .minimax-svg .minimax-trajectory {
+    stroke: var(--plot-orbit);
+    stroke-width: 1.35;
+    opacity: 0.87;
+  }
+
+  .minimax-equilibrium-ring {
+    fill: var(--page-bg);
+    stroke: var(--plot-orbit);
+    stroke-width: 0.75;
+  }
+
+  .minimax-equilibrium {
+    fill: var(--plot-orbit);
+  }
+
+  .minimax-equilibrium-callout {
+    pointer-events: none;
+  }
+
+  .minimax-svg .minimax-equilibrium-leader {
+    stroke: var(--soft-muted-color);
+    stroke-width: 0.55;
+    opacity: 0.65;
+  }
+
+  .minimax-equilibrium-label {
+    fill: var(--muted-color);
+    font-family: var(--site-font);
+    font-size: 10px;
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: 0.02em;
+    opacity: 0.9;
+  }
+
+  .minimax-ball-contact {
+    fill: var(--ball-contact);
+    opacity: 0.12;
+  }
+
+  .minimax-ball-sphere {
+    fill: url(#minimax-ball-shading);
+    stroke: var(--ball-edge);
+    stroke-width: 0.5;
+  }
+
+  .minimax-svg .minimax-ball-seam {
+    stroke: var(--ball-light);
+    stroke-width: 0.4;
+    opacity: 0.2;
+  }
+
+  .minimax-playback {
+    position: absolute;
+    right: 30px;
+    bottom: 7px;
+    display: flex;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .minimax-control:hover .minimax-playback,
+  .minimax-control:focus-visible .minimax-playback,
+  .minimax-plot[data-paused='true'] .minimax-playback {
+    opacity: 0.7;
+  }
+
+  .minimax-playback path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.2;
+  }
+
+  .minimax-play-icon,
+  .minimax-plot[data-paused='true'] .minimax-pause-icon {
+    display: none;
+  }
+
+  .minimax-plot[data-paused='true'] .minimax-play-icon {
+    display: block;
+  }
+
+  @media (max-width: 640px) {
+    .minimax-plot {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .minimax-playback {
+      transition: none;
+    }
+  }
+</style>

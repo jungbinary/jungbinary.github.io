@@ -1,5 +1,6 @@
 ---
 import EntryItem from '../components/EntryItem.astro'
+import MinimaxPlot from '../components/MinimaxPlot.astro'
 import PublicationItem from '../components/PublicationItem.astro'
 import Section from '../components/Section.astro'
 import {
@@ -16,7 +17,7 @@ import BaseLayout from '../layouts/BaseLayout.astro'
   title="Jungbin Jun"
   activePage="about"
 >
-  <section class="intro-text">
+  <section class="intro-text intro-with-plot">
     <p class="name">Jungbin Jun</p>
     <p class="tagline">M.S. Student @ POSTECH</p>
     <p class="email-line">jungbjun (at) postech.ac.kr</p>
@@ -30,6 +31,7 @@ import BaseLayout from '../layouts/BaseLayout.astro'
         ))
       }
     </div>
+    <MinimaxPlot />
   </section>
 
   <Section id="profile" title="Profile">
