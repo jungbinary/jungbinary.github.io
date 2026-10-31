@@ -66,10 +66,6 @@ const initialBall = ballFrame(0, angle)
           <path class="minimax-ball-seam" d={initialBall.seam} data-minimax-ball-seam />
         </g>
       </g>
-      <g class="minimax-equilibrium-callout">
-        <path class="minimax-equilibrium-leader" d="M166 122 L226 205 H238" />
-        <text class="minimax-equilibrium-label" x="245" y="208">Equilibrium</text>
-      </g>
     </svg>
     <span class="minimax-playback" aria-hidden="true">
       <svg viewBox="0 0 16 16" width="12" height="12">
@@ -259,26 +255,6 @@ const initialBall = ballFrame(0, angle)
 
   .minimax-equilibrium {
     fill: var(--plot-orbit);
-  }
-
-  .minimax-equilibrium-callout {
-    pointer-events: none;
-  }
-
-  .minimax-svg .minimax-equilibrium-leader {
-    stroke: var(--soft-muted-color);
-    stroke-width: 0.55;
-    opacity: 0.65;
-  }
-
-  .minimax-equilibrium-label {
-    fill: var(--muted-color);
-    font-family: var(--site-font);
-    font-size: 10px;
-    font-weight: 400;
-    font-style: italic;
-    letter-spacing: 0.02em;
-    opacity: 0.9;
   }
 
   .minimax-ball-contact {
