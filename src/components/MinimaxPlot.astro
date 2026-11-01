@@ -206,7 +206,6 @@ const initialBall = ballFrame(0, angle)
       }
       const nearEquilibrium = event.target instanceof Element
         && event.target.closest('[data-minimax-equilibrium]') !== null
-      cursorHint.textContent = nearEquilibrium ? 'Equilibrium' : 'Click!'
       cursorHint.dataset.equilibrium = String(nearEquilibrium)
       // Keep the cue beside the pointer, including near the viewport edges.
       const x = event.clientX + 14 + cursorHint.offsetWidth > window.innerWidth - 8
