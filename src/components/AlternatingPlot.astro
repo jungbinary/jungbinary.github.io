@@ -11,10 +11,11 @@ import HopfPlot from './HopfPlot.astro'
       const root = document.currentScript?.parentElement
       if (!root) return
       const variants = Array.from(root.querySelectorAll('[data-plot-variant]'))
-      let next = 'minimax'
+      let next = Math.random() < 0.5 ? 'minimax' : 'hopf'
       try {
         const previous = sessionStorage.getItem('jungbin-last-plot')
-        next = previous === 'minimax' ? 'hopf' : 'minimax'
+        if (previous === 'minimax') next = 'hopf'
+        else if (previous === 'hopf') next = 'minimax'
         sessionStorage.setItem('jungbin-last-plot', next)
       } catch {}
       const selected = variants.find((variant) => variant.getAttribute('data-plot-variant') === next)
