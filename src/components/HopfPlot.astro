@@ -1,0 +1,371 @@
+<figure class="hopf-plot" data-hopf-plot>
+  <button
+    class="hopf-surface"
+    type="button"
+    aria-label="Gaussian to Hopf fibration: click to resample"
+    aria-describedby="hopf-description"
+    data-hopf-surface
+  >
+    <canvas class="hopf-canvas" width="640" height="464" aria-hidden="true" data-hopf-canvas></canvas>
+  </button>
+  <a
+    class="hopf-center-target"
+    href="https://en.wikipedia.org/wiki/Flow_matching"
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label="Flow matching on Wikipedia (opens in a new tab)"
+    data-hopf-center
+  ></a>
+  <span class="hopf-cursor-hint" aria-hidden="true" data-hopf-cursor-hint>Click!</span>
+  <span id="hopf-description" class="hopf-description">
+    A Gaussian cloud flows into 32 linked circles of the Hopf fibration and back
+    in a continuous loop. 10,000 particles circulate along the fibers with short,
+    delicate trails while the entire structure rotates once every 18 seconds.
+    Neighboring particles follow coordinated paths. Restrained blue, teal, and bronze
+    accents brighten with particle speed. This is analytic transport inspired by
+    flow matching, without model training. Click the plot to resample and restart.
+    The center links to the Flow Matching Wikipedia article in a new tab.
+  </span>
+  <span class="hopf-description" role="status" data-hopf-status></span>
+</figure>
+
+<script>
+  import { createHopfSamples, createHopfFrame, hopfParticle, hopf, rotateHopf } from '../lib/hopf'
+
+  document.querySelectorAll<HTMLElement>('[data-hopf-plot]').forEach((plot) => {
+    const surface = plot.querySelector<HTMLButtonElement>('[data-hopf-surface]')
+    const canvas = plot.querySelector<HTMLCanvasElement>('[data-hopf-canvas]')
+    const cursorHint = plot.querySelector<HTMLElement>('[data-hopf-cursor-hint]')
+    const status = plot.querySelector<HTMLElement>('[data-hopf-status]')
+    const context = canvas?.getContext('2d')
+    if (!surface || !canvas || !context || !cursorHint || !status) return
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const desktop = window.matchMedia('(min-width: 641px)')
+    let model = createHopfSamples()
+    let elapsed = 0
+    let previousTime = 0
+    let lastRender = 0
+    let frame = 0
+    let inView = false
+    let palette: string[] = []
+    let guideColors: string[] = []
+    const history: { time: number; positions: Float32Array }[] = []
+    const speedSteps = 8
+    const paletteSize = 4 * speedSteps
+
+    const render = (recordHistory = false) => {
+      const seconds = reducedMotion.matches ? hopf.transportDuration : elapsed
+      const pose = createHopfFrame(seconds)
+      const viewRadius = (1 - pose.alpha) * model.sourceRadius + pose.alpha * model.targetRadius + pose.bend
+      const scale = 102 / viewRadius
+      const count = model.samples.length
+      const positions = new Float32Array(count * 3)
+      const colorIndices = new Uint8Array(count)
+      const groups: number[][] = Array.from({ length: paletteSize }, () => [])
+      const order = Array.from({ length: count }, (_, index) => index)
+      for (let index = 0; index < count; index++) {
+        const sample = model.samples[index]
+        const fiber = model.fibers[sample.fiber]
+        const state = hopfParticle(sample, fiber, pose)
+        const rotated = rotateHopf(state.point, pose)
+        const offset = index * 3
+        positions[offset] = rotated.x
+        positions[offset + 1] = rotated.y
+        positions[offset + 2] = rotated.z
+        // dX/dtau excludes the camera's rotation, so color measures particle flow.
+        const speed = Math.hypot(state.velocity.x, state.velocity.y, state.velocity.z)
+        const speedBin = Math.min(speedSteps - 1, Math.floor((1 - Math.exp(-speed / 0.8)) * speedSteps))
+        const bin = fiber.tone * speedSteps + speedBin
+        colorIndices[index] = bin
+        if (sample.tracer) groups[bin].push(index)
+      }
+      order.sort((a, b) => positions[a * 3 + 2] - positions[b * 3 + 2])
+      context.clearRect(0, 0, 320, 232)
+
+      // Fine continuous fibers make the linked-circle structure legible without
+      // filling the space with surfaces; highlighted tracers reveal its flow.
+      const reveal = Math.max(0, (pose.alpha - 0.35) / 0.65)
+      if (reveal > 0) {
+        context.lineWidth = 0.45
+        model.fibers.forEach((fiber) => {
+          context.strokeStyle = guideColors[fiber.tone]
+          context.globalAlpha = 0.16 * reveal
+          context.beginPath()
+          fiber.guide.forEach((point, index) => {
+            const p = rotateHopf(point, pose)
+            if (index === 0) context.moveTo(160 + p.x * scale, 116 - p.y * scale)
+            else context.lineTo(160 + p.x * scale, 116 - p.y * scale)
+          })
+          context.stroke()
+        })
+      }
+
+      if (recordHistory && !reducedMotion.matches) {
+        if (!history.length || seconds > history[history.length - 1].time) history.push({ time: seconds, positions })
+        while (history.length > 1 && history[1].time < seconds - hopf.trailDuration) history.shift()
+      }
+      if (!reducedMotion.matches && history.length > 1) {
+        const trail: typeof history = [{ time: seconds, positions }]
+        for (let age = 0.125; age <= hopf.trailDuration; age += 0.125) {
+          const target = seconds - age
+          if (target < history[0].time) break
+          let nearest = history[0]
+          for (const snapshot of history) {
+            if (Math.abs(snapshot.time - target) < Math.abs(nearest.time - target)) nearest = snapshot
+          }
+          if (nearest.time < trail[trail.length - 1].time) trail.push(nearest)
+        }
+        // Only selected tracers leave trails, keeping the negative space clear.
+        context.lineWidth = 0.6
+        for (let segment = trail.length - 1; segment > 0; segment--) {
+          context.globalAlpha = 0.025 + 0.12 * (1 - segment / (trail.length + 1))
+          const older = trail[segment].positions
+          const newer = trail[segment - 1].positions
+          for (let bin = 0; bin < paletteSize; bin++) {
+            context.strokeStyle = palette[bin]
+            context.beginPath()
+            for (const index of groups[bin]) {
+              const offset = index * 3
+              context.moveTo(160 + older[offset] * scale, 116 - older[offset + 1] * scale)
+              context.lineTo(160 + newer[offset] * scale, 116 - newer[offset + 1] * scale)
+            }
+            context.stroke()
+          }
+        }
+      }
+
+      for (const index of order) {
+        const offset = index * 3
+        const depth = Math.max(0, Math.min(1, (positions[offset + 2] / viewRadius + 1) / 2))
+        const emphasis = model.samples[index].emphasis * pose.alpha
+        context.globalAlpha = 0.12 + 0.22 * depth + 0.48 * emphasis
+        context.fillStyle = palette[colorIndices[index]]
+        context.beginPath()
+        context.arc(160 + positions[offset] * scale, 116 - positions[offset + 1] * scale, hopf.pointScale * (0.3 + 0.25 * depth + 0.22 * emphasis), 0, 2 * Math.PI)
+        context.fill()
+      }
+      context.globalAlpha = 1
+    }
+
+    const resize = () => {
+      const ratio = Math.min(window.devicePixelRatio || 1, 2)
+      const width = Math.max(320, Math.round(canvas.getBoundingClientRect().width * ratio))
+      canvas.width = width
+      canvas.height = Math.round(width * 232 / 320)
+      context.setTransform(canvas.width / 320, 0, 0, canvas.height / 232, 0, 0)
+      render()
+    }
+
+    const updateColors = () => {
+      const style = getComputedStyle(plot)
+      const lightness = Number(style.getPropertyValue('--hopf-lightness'))
+      const hues = [210, 184, 238, 32]
+      guideColors = hues.map((hue) => `hsl(${hue} 28% ${lightness}%)`)
+      palette = Array.from({ length: paletteSize }, (_, index) => {
+        const tone = Math.floor(index / speedSteps)
+        const speed = (index % speedSteps) / (speedSteps - 1)
+        const hue = hues[tone] + (tone === 3 ? 8 : -12) * speed
+        return `hsl(${hue} ${tone === 3 ? 42 : 28}% ${lightness + 8 * speed}%)`
+      })
+      render()
+    }
+
+    const tick = (now: number) => {
+      if (previousTime) elapsed += (now - previousTime) / 1000
+      previousTime = now
+      if (now - lastRender >= 1000 / 30) {
+        render(true)
+        lastRender = now
+      }
+      frame = requestAnimationFrame(tick)
+    }
+
+    const sync = () => {
+      if (inView && desktop.matches && !document.hidden && !reducedMotion.matches) {
+        if (!frame) frame = requestAnimationFrame(tick)
+      } else {
+        cancelAnimationFrame(frame)
+        frame = 0
+        previousTime = 0
+      }
+    }
+
+    const hideCursorHint = () => { cursorHint.dataset.visible = 'false' }
+    plot.addEventListener('pointermove', (event) => {
+      if (event.pointerType === 'touch') {
+        hideCursorHint()
+        return
+      }
+      const nearCenter = event.target instanceof Element
+        && event.target.closest('[data-hopf-center]') !== null
+      cursorHint.textContent = nearCenter ? 'Hopf Fibration' : 'Click!'
+      cursorHint.dataset.center = String(nearCenter)
+      const x = event.clientX + 14 + cursorHint.offsetWidth > window.innerWidth - 8
+        ? event.clientX - cursorHint.offsetWidth - 14
+        : event.clientX + 14
+      const y = event.clientY + 16 + cursorHint.offsetHeight > window.innerHeight - 8
+        ? event.clientY - cursorHint.offsetHeight - 16
+        : event.clientY + 16
+      cursorHint.style.transform = `translate3d(${x}px, ${y}px, 0)`
+      cursorHint.dataset.visible = 'true'
+    })
+    plot.addEventListener('pointerleave', hideCursorHint)
+    plot.addEventListener('pointercancel', hideCursorHint)
+    plot.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        hideCursorHint()
+      }
+    })
+    surface.addEventListener('click', () => {
+      model = createHopfSamples()
+      elapsed = 0
+      previousTime = 0
+      history.length = 0
+      updateColors()
+      status.textContent = 'New Gaussian samples are flowing into the Hopf fibration.'
+    })
+    reducedMotion.addEventListener('change', () => {
+      history.length = 0
+      render()
+      sync()
+    })
+    desktop.addEventListener('change', sync)
+    document.addEventListener('visibilitychange', () => {
+      hideCursorHint()
+      sync()
+    })
+
+    const visibilityObserver = new IntersectionObserver(([entry]) => {
+      inView = entry.isIntersecting
+      sync()
+    })
+    const resizeObserver = new ResizeObserver(resize)
+    const themeObserver = new MutationObserver(updateColors)
+    visibilityObserver.observe(plot)
+    resizeObserver.observe(canvas)
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+
+    window.addEventListener('pagehide', () => {
+      hideCursorHint()
+      cancelAnimationFrame(frame)
+      frame = 0
+      previousTime = 0
+      visibilityObserver.disconnect()
+      resizeObserver.disconnect()
+      themeObserver.disconnect()
+    })
+    window.addEventListener('pageshow', (event) => {
+      if (!event.persisted) return
+      visibilityObserver.observe(plot)
+      resizeObserver.observe(canvas)
+      themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+      updateColors()
+      sync()
+    })
+
+    updateColors()
+    resize()
+  })
+</script>
+
+<style>
+  .hopf-plot {
+    --hopf-lightness: 38;
+    --hopf-accent: #bb714a;
+    position: absolute;
+    top: 10px;
+    right: 22px;
+    width: min(360px, 45vw);
+    margin: 0;
+  }
+
+  :global(html[data-theme='dark']) .hopf-plot {
+    --hopf-lightness: 64;
+    --hopf-accent: #e9ad83;
+  }
+
+  .hopf-surface {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    cursor: crosshair;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .hopf-surface:focus-visible {
+    outline: 1px solid var(--link-color);
+    outline-offset: 2px;
+  }
+
+  .hopf-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 320 / 232;
+  }
+
+  .hopf-center-target {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 40px;
+    height: 40px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+
+  .hopf-center-target:focus-visible {
+    outline: 1px solid var(--hopf-accent);
+    outline-offset: 2px;
+  }
+
+  .hopf-cursor-hint {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    color: var(--muted-color);
+    font-size: 11px;
+    font-style: italic;
+    line-height: 1.4;
+    white-space: nowrap;
+    text-shadow: 0 0 4px var(--page-bg), 0 0 2px var(--page-bg);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+  }
+
+  .hopf-cursor-hint[data-visible='true'] {
+    opacity: 1;
+  }
+
+  .hopf-cursor-hint[data-center='true'] {
+    color: var(--hopf-accent);
+  }
+
+  .hopf-description {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 640px) {
+    .hopf-plot {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hopf-cursor-hint {
+      transition: none;
+    }
+  }
+</style>
