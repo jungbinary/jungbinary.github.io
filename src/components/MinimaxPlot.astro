@@ -22,6 +22,7 @@ const initialBall = ballFrame(0, angle)
         Hover over the orange equilibrium to identify it, and click it to read about
         the minimax theorem. Click elsewhere on the surface to choose a starting point,
         or press Enter or Space to explore a sample trajectory.
+        Clicks outside the surface snap to its nearest point.
         Otherwise, new trajectories start automatically at random points while the saddle rotates.
       </desc>
       <defs>
@@ -65,7 +66,6 @@ const initialBall = ballFrame(0, angle)
         data-minimax-equilibrium
       >
         <circle class="minimax-equilibrium-halo" cx="160" cy="116" r="19" />
-        <circle class="minimax-equilibrium-arrival" cx="160" cy="116" r="5" />
         <ellipse class="minimax-equilibrium-ring" cx="160" cy="116" rx="5.5" ry="2.6" />
         <circle class="minimax-equilibrium" cx="160" cy="116" r="2.5" />
         <circle class="minimax-equilibrium-hit" cx="160" cy="116" r="11" />
@@ -89,7 +89,7 @@ const initialBall = ballFrame(0, angle)
 </figure>
 
 <script>
-  import { axes, ballFrame, createFlow, defaultFlow, flowPoint, mesh, meshOpacity, minimax, pathData, pickSurface, project, randomInitial } from '../lib/minimax'
+  import { axes, ballFrame, createFlow, defaultFlow, flowPoint, mesh, meshOpacity, minimax, nearestSurfacePoint, pathData, pickSurface, project, randomInitial } from '../lib/minimax'
   import type { InitialPoint } from '../lib/minimax'
 
   document.querySelectorAll<HTMLElement>('[data-minimax-plot]').forEach((plot) => {
@@ -114,6 +114,7 @@ const initialBall = ballFrame(0, angle)
     let renderedAngle = NaN
     let activeFlow = defaultFlow
     let selectedByUser = false
+    let converged = false
     let sampleIndex = 0
     let previousTime = 0
     let lastRender = 0
@@ -123,7 +124,7 @@ const initialBall = ballFrame(0, angle)
       activeFlow = createFlow(initial)
       selectedByUser = userSelected
       phaseTime = reducedMotion.matches ? cycleDuration : 0
-      plot.dataset.converged = 'false'
+      converged = false
       start.setAttribute('visibility', 'visible')
       // Announce deliberate selections without repeatedly announcing autoplay.
       status.textContent = userSelected
@@ -153,13 +154,13 @@ const initialBall = ballFrame(0, angle)
       start.setAttribute('cy', String(origin.y))
 
       const pose = ballFrame(t, angle, activeFlow)
-      // Fade between passes while the equilibrium gets a quiet moment of emphasis.
+      // Fade between trajectories while pausing briefly at the equilibrium.
       ball.style.opacity = String(Math.min(1, phaseTime / 0.35, (minimax.duration - t) / 1.5))
       ballBody.setAttribute('transform', pose.bodyTransform)
       ballShadow.setAttribute('transform', pose.shadowTransform)
       ballSeam.setAttribute('d', pose.seam)
-      if (t >= minimax.duration && plot.dataset.converged !== 'true') {
-        plot.dataset.converged = 'true'
+      if (t >= minimax.duration && !converged) {
+        converged = true
         if (selectedByUser) status.textContent = 'The trajectory has converged near the equilibrium at x = 0, y = 0.'
       }
     }
@@ -220,17 +221,18 @@ const initialBall = ballFrame(0, angle)
     surface.addEventListener('pointerleave', hideCursorHint)
     surface.addEventListener('pointercancel', hideCursorHint)
 
-    surface.addEventListener('click', (event) => {
-      if (event.target instanceof Element && event.target.closest('[data-minimax-equilibrium]')) return
+    document.addEventListener('click', (event) => {
+      if (!(event.target instanceof Element)
+        || event.target.closest('a, button, input, textarea, select, summary, [role="button"], [role="link"], [contenteditable="true"]')
+        || !window.getSelection()?.isCollapsed) return
       const matrix = surface.getScreenCTM()
       if (!matrix) return
       const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse())
       const displayAngle = Number.isNaN(renderedAngle) ? minimax.initialAngle : renderedAngle
       const initial = pickSurface(point.x, point.y, displayAngle)
-      if (initial) {
-        angle = displayAngle
-        explore(initial)
-      }
+        ?? nearestSurfacePoint(point.x, point.y, displayAngle)
+      angle = displayAngle
+      explore(initial)
     })
     surface.addEventListener('keydown', (event) => {
       if (event.target instanceof Element && event.target.closest('[data-minimax-equilibrium]')) return
@@ -366,33 +368,6 @@ const initialBall = ballFrame(0, angle)
     opacity: 1;
   }
 
-  .minimax-equilibrium-arrival {
-    fill: none;
-    stroke: var(--plot-orbit);
-    stroke-width: 0.8;
-    opacity: 0;
-    transform-origin: 160px 116px;
-    pointer-events: none;
-  }
-
-  .minimax-plot[data-converged='true'] .minimax-equilibrium-arrival {
-    animation: minimax-arrive 1.8s ease-out;
-  }
-
-  .minimax-plot[data-converged='true'] .minimax-equilibrium-halo {
-    opacity: 0.65;
-  }
-
-  .minimax-plot[data-converged='true'] .minimax-equilibrium-target:hover .minimax-equilibrium-halo {
-    opacity: 1;
-  }
-
-  @keyframes minimax-arrive {
-    0% { opacity: 0; transform: scale(1); }
-    20% { opacity: 0.65; }
-    100% { opacity: 0; transform: scale(3.2); }
-  }
-
   .minimax-equilibrium-ring {
     fill: none;
     stroke: var(--plot-orbit);
@@ -469,10 +444,6 @@ const initialBall = ballFrame(0, angle)
     .minimax-cursor-hint,
     .minimax-equilibrium-halo {
       transition: none;
-    }
-
-    .minimax-plot[data-converged='true'] .minimax-equilibrium-arrival {
-      animation: none;
     }
   }
 </style>

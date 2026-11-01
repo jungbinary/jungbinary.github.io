@@ -133,6 +133,40 @@ export function pickSurface(screenX: number, screenY: number, angle: number): Po
   return null
 }
 
+// Snap a missed click to the nearest segment of the displayed wireframe.
+export function nearestSurfacePoint(screenX: number, screenY: number, angle: number): Point3 {
+  let nearest = mesh[0].points[0]
+  let nearestDistance = Infinity
+  let nearestDepth = -Infinity
+  for (const line of mesh) {
+    let previous = project(line.points[0], angle)
+    for (let i = 1; i < line.points.length; i++) {
+      const current = project(line.points[i], angle)
+      const dx = current.x - previous.x
+      const dy = current.y - previous.y
+      const lengthSquared = dx * dx + dy * dy
+      const fraction = lengthSquared > 0
+        ? Math.max(0, Math.min(1, ((screenX - previous.x) * dx + (screenY - previous.y) * dy) / lengthSquared))
+        : 0
+      const a = line.points[i - 1]
+      const b = line.points[i]
+      const x = a.x + (b.x - a.x) * fraction
+      const y = a.y + (b.y - a.y) * fraction
+      const point = { x, y, z: saddleValue(x, y) }
+      const projected = project(point, angle)
+      const distance = (projected.x - screenX) ** 2 + (projected.y - screenY) ** 2
+      if (distance < nearestDistance - 1e-8
+        || (Math.abs(distance - nearestDistance) <= 1e-8 && projected.depth > nearestDepth)) {
+        nearest = point
+        nearestDistance = distance
+        nearestDepth = projected.depth
+      }
+      previous = current
+    }
+  }
+  return nearest
+}
+
 export function ballFrame(t: number, angle: number, flow = defaultFlow) {
   const point = flowPoint(t, flow.initial)
   const contact = project(point, angle)
