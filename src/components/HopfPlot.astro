@@ -199,7 +199,7 @@
       }
       const nearCenter = event.target instanceof Element
         && event.target.closest('[data-hopf-center]') !== null
-      cursorHint.textContent = nearCenter ? 'Hopf Fibration' : 'Click!'
+      cursorHint.textContent = 'Click!'
       cursorHint.dataset.center = String(nearCenter)
       const x = event.clientX + 14 + cursorHint.offsetWidth > window.innerWidth - 8
         ? event.clientX - cursorHint.offsetWidth - 14
