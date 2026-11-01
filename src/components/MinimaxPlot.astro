@@ -6,25 +6,23 @@ const initialBall = ballFrame(0, angle)
 ---
 
 <figure class="minimax-plot" data-minimax-plot>
-  <button
-    class="minimax-control"
-    type="button"
-    aria-label="Pause minimax animation"
-    aria-pressed="false"
-    title="Pause animation"
-    data-minimax-control
-  >
+  <div class="minimax-stage">
     <svg
       class="minimax-svg"
       viewBox="0 0 320 232"
-      role="img"
-      aria-labelledby="minimax-title minimax-description"
+      role="group"
+      tabindex="0"
+      aria-label="Interactive minimax plot"
+      aria-describedby="minimax-description"
+      data-minimax-surface
     >
-      <title id="minimax-title">Minimax gradient flow on a rotated saddle</title>
       <desc id="minimax-description">
         A wireframe of f(x,y) = {minimax.mu / 2}(x² − y²) + {minimax.lambda}xy. An orange
-        descent–ascent trajectory spirals toward the equilibrium at the origin,
-        followed by a stylized matte blue ball with simple dimensional shading.
+        descent–ascent trajectory spirals toward the equilibrium at the origin.
+        Hover over the orange equilibrium to identify it, and click it to read about
+        the minimax theorem. Click elsewhere on the surface to choose a starting point,
+        or press Enter or Space to explore a sample trajectory.
+        Otherwise, new trajectories start automatically at random points while the saddle rotates.
       </desc>
       <defs>
         <radialGradient id="minimax-ball-shading" cx="30%" cy="25%" r="90%">
@@ -34,6 +32,11 @@ const initialBall = ballFrame(0, angle)
           <stop offset="0.8" stop-color="var(--ball-mid)" />
           <stop offset="0.86" stop-color="var(--ball-shadow)" />
           <stop offset="1" stop-color="var(--ball-shadow)" />
+        </radialGradient>
+        <radialGradient id="minimax-equilibrium-glow">
+          <stop offset="0" stop-color="var(--plot-orbit)" stop-opacity="0.3" />
+          <stop offset="0.45" stop-color="var(--plot-orbit)" stop-opacity="0.12" />
+          <stop offset="1" stop-color="var(--plot-orbit)" stop-opacity="0" />
         </radialGradient>
       </defs>
       <g class="minimax-axes">
@@ -52,8 +55,21 @@ const initialBall = ballFrame(0, angle)
         ))}
       </g>
       <path class="minimax-trajectory" d={pathData(trajectory, angle)} data-minimax-trajectory />
-      <circle class="minimax-equilibrium-ring" cx="160" cy="116" r="4" />
-      <circle class="minimax-equilibrium" cx="160" cy="116" r="1.8" />
+      <circle class="minimax-start" r="2.4" visibility="hidden" data-minimax-start />
+      <a
+        class="minimax-equilibrium-target"
+        href="https://en.wikipedia.org/wiki/Minimax_theorem"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Equilibrium: Minimax theorem on Wikipedia (opens in a new tab)"
+        data-minimax-equilibrium
+      >
+        <circle class="minimax-equilibrium-halo" cx="160" cy="116" r="19" />
+        <circle class="minimax-equilibrium-arrival" cx="160" cy="116" r="5" />
+        <ellipse class="minimax-equilibrium-ring" cx="160" cy="116" rx="5.5" ry="2.6" />
+        <circle class="minimax-equilibrium" cx="160" cy="116" r="2.5" />
+        <circle class="minimax-equilibrium-hit" cx="160" cy="116" r="11" />
+      </a>
       <g data-minimax-ball>
         <circle
           class="minimax-ball-contact"
@@ -67,20 +83,20 @@ const initialBall = ballFrame(0, angle)
         </g>
       </g>
     </svg>
-    <span class="minimax-playback" aria-hidden="true">
-      <svg viewBox="0 0 16 16" width="12" height="12">
-        <path class="minimax-pause-icon" d="M5 4v8M11 4v8" />
-        <path class="minimax-play-icon" d="m5 3 7 5-7 5Z" />
-      </svg>
-    </span>
-  </button>
+    <span class="minimax-cursor-hint" aria-hidden="true" data-minimax-cursor-hint>Click!</span>
+    <span class="minimax-status" role="status" data-minimax-status></span>
+  </div>
 </figure>
 
 <script>
-  import { axes, ballFrame, mesh, meshOpacity, minimax, pathData, trajectory } from '../lib/minimax'
+  import { axes, ballFrame, createFlow, defaultFlow, flowPoint, mesh, meshOpacity, minimax, pathData, pickSurface, project, randomInitial } from '../lib/minimax'
+  import type { InitialPoint } from '../lib/minimax'
 
   document.querySelectorAll<HTMLElement>('[data-minimax-plot]').forEach((plot) => {
-    const control = plot.querySelector<HTMLButtonElement>('[data-minimax-control]')
+    const surface = plot.querySelector<SVGSVGElement>('[data-minimax-surface]')
+    const cursorHint = plot.querySelector<HTMLElement>('[data-minimax-cursor-hint]')
+    const start = plot.querySelector<SVGCircleElement>('[data-minimax-start]')
+    const status = plot.querySelector<HTMLElement>('[data-minimax-status]')
     const gridPaths = plot.querySelectorAll<SVGPathElement>('[data-minimax-grid]')
     const axisPaths = plot.querySelectorAll<SVGPathElement>('[data-minimax-axis]')
     const curve = plot.querySelector<SVGPathElement>('[data-minimax-trajectory]')
@@ -88,39 +104,74 @@ const initialBall = ballFrame(0, angle)
     const ballBody = plot.querySelector<SVGGElement>('[data-minimax-ball-body]')
     const ballShadow = plot.querySelector<SVGCircleElement>('[data-minimax-shadow]')
     const ballSeam = plot.querySelector<SVGPathElement>('[data-minimax-ball-seam]')
-    if (!control || !curve || !ball || !ballBody || !ballShadow || !ballSeam) return
+    if (!surface || !cursorHint || !start || !status || !curve || !ball || !ballBody || !ballShadow || !ballSeam) return
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
-    let paused = reducedMotion.matches
+    const cycleDuration = minimax.duration / minimax.playbackRate
     let inView = true
-    let elapsed = 0
+    let phaseTime = 0
+    let angle = minimax.initialAngle
+    let renderedAngle = NaN
+    let activeFlow = defaultFlow
+    let selectedByUser = false
+    let sampleIndex = 0
     let previousTime = 0
     let lastRender = 0
     let frame = 0
 
-    const render = () => {
-      const angle = minimax.initialAngle + elapsed * 0.065
-      gridPaths.forEach((path, index) => {
-        path.setAttribute('d', pathData(mesh[index].points, angle))
-        path.setAttribute('opacity', String(meshOpacity(mesh[index].points, angle)))
-      })
-      axisPaths.forEach((path, index) => {
-        path.setAttribute('d', pathData(axes[index].points, angle))
-      })
-      curve.setAttribute('d', pathData(trajectory, angle))
+    const beginFlow = (initial: InitialPoint, userSelected = false) => {
+      activeFlow = createFlow(initial)
+      selectedByUser = userSelected
+      phaseTime = reducedMotion.matches ? cycleDuration : 0
+      plot.dataset.converged = 'false'
+      start.setAttribute('visibility', 'visible')
+      // Announce deliberate selections without repeatedly announcing autoplay.
+      status.textContent = userSelected
+        ? `Gradient descent–ascent starting at x = ${initial.x.toFixed(2)}, y = ${initial.y.toFixed(2)}.`
+        : ''
+    }
 
-      // Fade at each end of a pass so restarting never looks like reversed flow.
-      const t = (elapsed * 1.2) % minimax.duration
-      const pose = ballFrame(t, angle)
-      const visibility = Math.min(1, t / 0.45, (minimax.duration - t) / 0.7)
-      ball.style.opacity = String(visibility)
+    const render = () => {
+      if (angle !== renderedAngle) {
+        gridPaths.forEach((path, index) => {
+          path.setAttribute('d', pathData(mesh[index].points, angle))
+          path.setAttribute('opacity', String(meshOpacity(mesh[index].points, angle)))
+        })
+        axisPaths.forEach((path, index) => {
+          path.setAttribute('d', pathData(axes[index].points, angle))
+        })
+        renderedAngle = angle
+      }
+
+      const t = Math.min(minimax.duration, phaseTime * minimax.playbackRate)
+      const count = Math.floor(t / minimax.duration * (activeFlow.points.length - 1))
+      const trail = activeFlow.points.slice(0, count + 1)
+      if (t < minimax.duration) trail.push(flowPoint(t, activeFlow.initial))
+      curve.setAttribute('d', pathData(trail, angle))
+      const origin = project(activeFlow.points[0], angle)
+      start.setAttribute('cx', String(origin.x))
+      start.setAttribute('cy', String(origin.y))
+
+      const pose = ballFrame(t, angle, activeFlow)
+      // Fade between passes while the equilibrium gets a quiet moment of emphasis.
+      ball.style.opacity = String(Math.min(1, phaseTime / 0.35, (minimax.duration - t) / 1.5))
       ballBody.setAttribute('transform', pose.bodyTransform)
       ballShadow.setAttribute('transform', pose.shadowTransform)
       ballSeam.setAttribute('d', pose.seam)
+      if (t >= minimax.duration && plot.dataset.converged !== 'true') {
+        plot.dataset.converged = 'true'
+        if (selectedByUser) status.textContent = 'The trajectory has converged near the equilibrium at x = 0, y = 0.'
+      }
     }
 
     const tick = (now: number) => {
-      if (previousTime) elapsed += Math.min((now - previousTime) / 1000, 0.1)
+      if (previousTime) {
+        const delta = Math.min((now - previousTime) / 1000, 0.1)
+        phaseTime += delta
+        // Camera rotation continues during both selected and automatic trajectories.
+        angle += delta * 0.065
+        if (phaseTime >= cycleDuration + minimax.restDuration) beginFlow(randomInitial())
+      }
       previousTime = now
       if (now - lastRender >= 1000 / 30) {
         render()
@@ -130,11 +181,7 @@ const initialBall = ballFrame(0, angle)
     }
 
     const sync = () => {
-      control.setAttribute('aria-pressed', String(paused))
-      control.setAttribute('aria-label', paused ? 'Play minimax animation' : 'Pause minimax animation')
-      control.title = paused ? 'Play animation' : 'Pause animation'
-      plot.dataset.paused = String(paused)
-      if (!paused && inView && !document.hidden) {
+      if (!reducedMotion.matches && inView && !document.hidden) {
         if (!frame) frame = requestAnimationFrame(tick)
       } else {
         cancelAnimationFrame(frame)
@@ -143,15 +190,64 @@ const initialBall = ballFrame(0, angle)
       }
     }
 
-    control.addEventListener('click', () => {
-      paused = !paused
+    const explore = (initial: InitialPoint) => {
+      beginFlow(initial, true)
+      previousTime = 0
+      render()
       sync()
+    }
+
+    const hideCursorHint = () => { cursorHint.dataset.visible = 'false' }
+    surface.addEventListener('pointermove', (event) => {
+      if (event.pointerType === 'touch') {
+        hideCursorHint()
+        return
+      }
+      const nearEquilibrium = event.target instanceof Element
+        && event.target.closest('[data-minimax-equilibrium]') !== null
+      cursorHint.textContent = nearEquilibrium ? 'Equilibrium' : 'Click!'
+      cursorHint.dataset.equilibrium = String(nearEquilibrium)
+      // Keep the cue beside the pointer, including near the viewport edges.
+      const x = event.clientX + 14 + cursorHint.offsetWidth > window.innerWidth - 8
+        ? event.clientX - cursorHint.offsetWidth - 14
+        : event.clientX + 14
+      const y = event.clientY + 16 + cursorHint.offsetHeight > window.innerHeight - 8
+        ? event.clientY - cursorHint.offsetHeight - 16
+        : event.clientY + 16
+      cursorHint.style.transform = `translate3d(${x}px, ${y}px, 0)`
+      cursorHint.dataset.visible = 'true'
+    })
+    surface.addEventListener('pointerleave', hideCursorHint)
+    surface.addEventListener('pointercancel', hideCursorHint)
+
+    surface.addEventListener('click', (event) => {
+      if (event.target instanceof Element && event.target.closest('[data-minimax-equilibrium]')) return
+      const matrix = surface.getScreenCTM()
+      if (!matrix) return
+      const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse())
+      const displayAngle = Number.isNaN(renderedAngle) ? minimax.initialAngle : renderedAngle
+      const initial = pickSurface(point.x, point.y, displayAngle)
+      if (initial) {
+        angle = displayAngle
+        explore(initial)
+      }
+    })
+    surface.addEventListener('keydown', (event) => {
+      if (event.target instanceof Element && event.target.closest('[data-minimax-equilibrium]')) return
+      if (event.key !== 'Enter' && event.key !== ' ') return
+      event.preventDefault()
+      const theta = sampleIndex++ * Math.PI / 4 - 0.28
+      explore({ x: 1.25 * Math.cos(theta), y: 1.25 * Math.sin(theta) })
     })
     reducedMotion.addEventListener('change', () => {
-      paused = reducedMotion.matches
+      if (reducedMotion.matches) phaseTime = cycleDuration
+      render()
       sync()
     })
-    document.addEventListener('visibilitychange', sync)
+    document.addEventListener('visibilitychange', () => {
+      hideCursorHint()
+      sync()
+    })
     const observer = new IntersectionObserver(([entry]) => {
       inView = entry.isIntersecting
       sync()
@@ -161,6 +257,8 @@ const initialBall = ballFrame(0, angle)
       cancelAnimationFrame(frame)
       observer.disconnect()
     }, { once: true })
+    beginFlow(randomInitial())
+    render()
     sync()
   })
 </script>
@@ -176,9 +274,9 @@ const initialBall = ballFrame(0, angle)
     --ball-edge: #5e7398;
     --ball-contact: #243249;
     position: absolute;
-    top: 36px;
-    right: 32px;
-    width: 316px;
+    top: 29px;
+    right: 22px;
+    width: min(360px, 45vw);
     margin: 0;
   }
 
@@ -193,22 +291,8 @@ const initialBall = ballFrame(0, angle)
     --ball-contact: #05080e;
   }
 
-  .minimax-control {
+  .minimax-stage {
     position: relative;
-    display: block;
-    width: 100%;
-    padding: 0;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--muted-color);
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .minimax-control:focus-visible {
-    outline: 1px solid var(--link-color);
-    outline-offset: 3px;
   }
 
   .minimax-svg {
@@ -216,6 +300,10 @@ const initialBall = ballFrame(0, angle)
     width: 100%;
     height: auto;
     overflow: visible;
+    border-radius: 8px;
+    outline: none;
+    cursor: crosshair;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .minimax-svg path {
@@ -245,16 +333,79 @@ const initialBall = ballFrame(0, angle)
     stroke: var(--plot-orbit);
     stroke-width: 1.35;
     opacity: 0.87;
+    pointer-events: none;
+  }
+
+  .minimax-start {
+    fill: var(--page-bg);
+    stroke: var(--plot-orbit);
+    stroke-width: 1;
+    pointer-events: none;
+  }
+
+  .minimax-equilibrium-target {
+    cursor: default;
+    outline: none;
+  }
+
+  .minimax-equilibrium-hit {
+    fill: transparent;
+    pointer-events: all;
+  }
+
+  .minimax-equilibrium-halo {
+    fill: url(#minimax-equilibrium-glow);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+
+  .minimax-equilibrium-target:hover .minimax-equilibrium-halo,
+  .minimax-equilibrium-target:focus-visible .minimax-equilibrium-halo,
+  .minimax-svg:focus-visible .minimax-equilibrium-halo {
+    opacity: 1;
+  }
+
+  .minimax-equilibrium-arrival {
+    fill: none;
+    stroke: var(--plot-orbit);
+    stroke-width: 0.8;
+    opacity: 0;
+    transform-origin: 160px 116px;
+    pointer-events: none;
+  }
+
+  .minimax-plot[data-converged='true'] .minimax-equilibrium-arrival {
+    animation: minimax-arrive 1.8s ease-out;
+  }
+
+  .minimax-plot[data-converged='true'] .minimax-equilibrium-halo {
+    opacity: 0.65;
+  }
+
+  .minimax-plot[data-converged='true'] .minimax-equilibrium-target:hover .minimax-equilibrium-halo {
+    opacity: 1;
+  }
+
+  @keyframes minimax-arrive {
+    0% { opacity: 0; transform: scale(1); }
+    20% { opacity: 0.65; }
+    100% { opacity: 0; transform: scale(3.2); }
   }
 
   .minimax-equilibrium-ring {
-    fill: var(--page-bg);
+    fill: none;
     stroke: var(--plot-orbit);
-    stroke-width: 0.75;
+    stroke-width: 0.6;
+    opacity: 0.55;
   }
 
   .minimax-equilibrium {
     fill: var(--plot-orbit);
+  }
+
+  [data-minimax-ball] {
+    pointer-events: none;
   }
 
   .minimax-ball-contact {
@@ -274,34 +425,38 @@ const initialBall = ballFrame(0, angle)
     opacity: 0.2;
   }
 
-  .minimax-playback {
-    position: absolute;
-    right: 30px;
-    bottom: 7px;
-    display: flex;
+  .minimax-cursor-hint {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    color: var(--muted-color);
+    font-size: 11px;
+    font-style: italic;
+    line-height: 1.4;
+    white-space: nowrap;
+    text-shadow: 0 0 4px var(--page-bg), 0 0 2px var(--page-bg);
     opacity: 0;
     transition: opacity 0.15s ease;
+    pointer-events: none;
   }
 
-  .minimax-control:hover .minimax-playback,
-  .minimax-control:focus-visible .minimax-playback,
-  .minimax-plot[data-paused='true'] .minimax-playback {
-    opacity: 0.7;
+  .minimax-cursor-hint[data-visible='true'] {
+    opacity: 1;
   }
 
-  .minimax-playback path {
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.2;
+  .minimax-cursor-hint[data-equilibrium='true'] {
+    color: var(--plot-orbit);
   }
 
-  .minimax-play-icon,
-  .minimax-plot[data-paused='true'] .minimax-pause-icon {
-    display: none;
-  }
-
-  .minimax-plot[data-paused='true'] .minimax-play-icon {
-    display: block;
+  .minimax-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   @media (max-width: 640px) {
@@ -311,8 +466,13 @@ const initialBall = ballFrame(0, angle)
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .minimax-playback {
+    .minimax-cursor-hint,
+    .minimax-equilibrium-halo {
       transition: none;
+    }
+
+    .minimax-plot[data-converged='true'] .minimax-equilibrium-arrival {
+      animation: none;
     }
   }
 </style>
