@@ -17,9 +17,28 @@ export function saddleValue(x: number, y: number) {
 }
 
 export function randomInitial(): InitialPoint {
+  const decayAngle = Math.atan2(minimax.mu, minimax.lambda)
+  const nextPeak = (target: number, angle: number) =>
+    ((target - angle) % Math.PI + Math.PI) % Math.PI / minimax.lambda
+  for (let attempt = 0; attempt < 32; attempt++) {
+    const angle = Math.random() * Math.PI * 2
+    const edgeRadius = extent / Math.max(Math.abs(Math.cos(angle)), Math.abs(Math.sin(angle)))
+    const radius = edgeRadius * (0.9 + 0.08 * Math.sqrt(Math.random()))
+    const u = radius * Math.cos(angle)
+    const v = radius * Math.sin(angle)
+    // Check each coordinate's first extremum; later peaks decay exponentially.
+    const tu = nextPeak(-decayAngle, angle)
+    const tv = nextPeak(Math.PI / 2 - decayAngle, angle)
+    const peakU = radius * Math.exp(-minimax.mu * tu) * Math.abs(Math.cos(angle + minimax.lambda * tu))
+    const peakV = radius * Math.exp(-minimax.mu * tv) * Math.abs(Math.sin(angle + minimax.lambda * tv))
+    if (Math.max(Math.abs(u), Math.abs(v), peakU, peakV) <= extent * 0.99) {
+      const { x, y } = surfacePoint(u, v)
+      return { x, y }
+    }
+  }
+  // A bounded fallback keeps the full spiral inside the mesh.
   const angle = Math.random() * Math.PI * 2
-  // This disk stays inside the mesh throughout the contracting spiral.
-  const radius = Math.sqrt(0.9 ** 2 + Math.random() * (1.42 ** 2 - 0.9 ** 2))
+  const radius = extent * 0.98
   return { x: radius * Math.cos(angle), y: radius * Math.sin(angle) }
 }
 
