@@ -44,7 +44,7 @@
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
     const desktop = window.matchMedia('(min-width: 641px)')
     let model = createHopfSamples()
-    let elapsed = hopf.transportDuration
+    let elapsed = 0
     let previousTime = 0
     let lastRender = 0
     let frame = 0
@@ -59,7 +59,7 @@
     const perspectiveAt = (depth: number) => 1 / (1 - 0.28 * depth)
 
     const render = (recordHistory = false) => {
-      const seconds = reducedMotion.matches ? hopf.transportDuration : elapsed
+      const seconds = elapsed
       const pose = createHopfFrame(seconds)
       const viewRadius = (1 - pose.alpha) * model.sourceRadius + pose.alpha * model.targetRadius + pose.bend
       const scale = 102 / viewRadius
