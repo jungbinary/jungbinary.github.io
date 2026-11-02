@@ -20,10 +20,11 @@
   <span id="hopf-description" class="hopf-description">
     A Gaussian cloud flows into 32 linked circles of the Hopf fibration and back
     in a continuous loop. 10,000 particles circulate along the fibers with short,
-    delicate trails while the entire structure rotates once every 18 seconds.
-    Neighboring particles follow coordinated paths. Restrained blue, teal, and bronze
+    delicate trails while the entire structure rotates once every 30 seconds.
+    Neighboring particles follow coordinated paths. Restrained blue, jade, and champagne
     accents brighten with particle speed. This is analytic transport inspired by
-    flow matching, without model training. Click the plot to resample and restart.
+    flow matching, without model training. Softly lit particles grow larger and
+    clearer toward the viewer. Click the plot to resample and restart.
     The center links to the Flow Matching Wikipedia article in a new tab.
   </span>
   <span class="hopf-description" role="status" data-hopf-status></span>
@@ -43,16 +44,19 @@
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
     const desktop = window.matchMedia('(min-width: 641px)')
     let model = createHopfSamples()
-    let elapsed = 0
+    let elapsed = hopf.transportDuration
     let previousTime = 0
     let lastRender = 0
     let frame = 0
     let inView = false
     let palette: string[] = []
+    let particleSprites: HTMLCanvasElement[] = []
+    let haloSprites: HTMLCanvasElement[] = []
     let guideColors: string[] = []
     const history: { time: number; positions: Float32Array }[] = []
     const speedSteps = 8
     const paletteSize = 4 * speedSteps
+    const perspectiveAt = (depth: number) => 1 / (1 - 0.28 * depth)
 
     const render = (recordHistory = false) => {
       const seconds = reducedMotion.matches ? hopf.transportDuration : elapsed
@@ -70,9 +74,13 @@
         const state = hopfParticle(sample, fiber, pose)
         const rotated = rotateHopf(state.point, pose)
         const offset = index * 3
-        positions[offset] = rotated.x
-        positions[offset + 1] = rotated.y
-        positions[offset + 2] = rotated.z
+        const depth = rotated.z / viewRadius
+        const perspective = perspectiveAt(depth)
+        // Store screen coordinates so trails share the particles' perspective
+        // and retain the scale at which each historical frame was drawn.
+        positions[offset] = 160 + rotated.x * scale * perspective
+        positions[offset + 1] = 116 - rotated.y * scale * perspective
+        positions[offset + 2] = depth
         // dX/dtau excludes the camera's rotation, so color measures particle flow.
         const speed = Math.hypot(state.velocity.x, state.velocity.y, state.velocity.z)
         const speedBin = Math.min(speedSteps - 1, Math.floor((1 - Math.exp(-speed / 0.8)) * speedSteps))
@@ -83,22 +91,40 @@
       order.sort((a, b) => positions[a * 3 + 2] - positions[b * 3 + 2])
       context.clearRect(0, 0, 320, 232)
 
-      // Fine continuous fibers make the linked-circle structure legible without
-      // filling the space with surfaces; highlighted tracers reveal its flow.
+      // Depth-faded threads support the silhouette, with more light on the
+      // near side and room for the pearl-like tracers to carry the motion.
       const reveal = Math.max(0, (pose.alpha - 0.35) / 0.65)
       if (reveal > 0) {
-        context.lineWidth = 0.45
+        const depthSteps = 6
+        const threads = Array.from({ length: 4 * depthSteps }, () => new Path2D())
         model.fibers.forEach((fiber) => {
-          context.strokeStyle = guideColors[fiber.tone]
-          context.globalAlpha = 0.16 * reveal
-          context.beginPath()
+          let previous: { x: number; y: number; depth: number } | undefined
           fiber.guide.forEach((point, index) => {
             const p = rotateHopf(point, pose)
-            if (index === 0) context.moveTo(160 + p.x * scale, 116 - p.y * scale)
-            else context.lineTo(160 + p.x * scale, 116 - p.y * scale)
+            const depth = p.z / viewRadius
+            const perspective = perspectiveAt(depth)
+            const x = 160 + p.x * scale * perspective
+            const y = 116 - p.y * scale * perspective
+            if (index > 0 && previous) {
+              const level = Math.max(0, Math.min(depthSteps - 1,
+                Math.floor(((depth + previous.depth) / 4 + 0.5) * depthSteps)))
+              const thread = threads[fiber.tone * depthSteps + level]
+              thread.moveTo(previous.x, previous.y)
+              thread.lineTo(x, y)
+            }
+            previous = { x, y, depth }
           })
-          context.stroke()
         })
+        context.lineCap = 'round'
+        for (let level = 0; level < depthSteps; level++) {
+          const depth = level / (depthSteps - 1)
+          context.lineWidth = 0.3 + 0.22 * depth
+          context.globalAlpha = reveal * (0.035 + 0.16 * depth ** 1.5)
+          for (let tone = 0; tone < 4; tone++) {
+            context.strokeStyle = guideColors[tone]
+            context.stroke(threads[tone * depthSteps + level])
+          }
+        }
       }
 
       if (recordHistory && !reducedMotion.matches) {
@@ -107,7 +133,7 @@
       }
       if (!reducedMotion.matches && history.length > 1) {
         const trail: typeof history = [{ time: seconds, positions }]
-        for (let age = 0.125; age <= hopf.trailDuration; age += 0.125) {
+        for (let age = 0.075; age <= hopf.trailDuration; age += 0.075) {
           const target = seconds - age
           if (target < history[0].time) break
           let nearest = history[0]
@@ -116,10 +142,12 @@
           }
           if (nearest.time < trail[trail.length - 1].time) trail.push(nearest)
         }
-        // Only selected tracers leave trails, keeping the negative space clear.
-        context.lineWidth = 0.6
+        // Tails taper and fade into fine silk, leaving the space between fibers open.
+        context.lineCap = 'round'
         for (let segment = trail.length - 1; segment > 0; segment--) {
-          context.globalAlpha = 0.025 + 0.12 * (1 - segment / (trail.length + 1))
+          const freshness = 1 - segment / trail.length
+          context.globalAlpha = 0.015 + 0.24 * freshness ** 1.6
+          context.lineWidth = 0.2 + 0.55 * freshness
           const older = trail[segment].positions
           const newer = trail[segment - 1].positions
           for (let bin = 0; bin < paletteSize; bin++) {
@@ -127,8 +155,8 @@
             context.beginPath()
             for (const index of groups[bin]) {
               const offset = index * 3
-              context.moveTo(160 + older[offset] * scale, 116 - older[offset + 1] * scale)
-              context.lineTo(160 + newer[offset] * scale, 116 - newer[offset + 1] * scale)
+              context.moveTo(older[offset], older[offset + 1])
+              context.lineTo(newer[offset], newer[offset + 1])
             }
             context.stroke()
           }
@@ -137,13 +165,25 @@
 
       for (const index of order) {
         const offset = index * 3
-        const depth = Math.max(0, Math.min(1, (positions[offset + 2] / viewRadius + 1) / 2))
-        const emphasis = model.samples[index].emphasis * pose.alpha
-        context.globalAlpha = 0.12 + 0.22 * depth + 0.48 * emphasis
-        context.fillStyle = palette[colorIndices[index]]
-        context.beginPath()
-        context.arc(160 + positions[offset] * scale, 116 - positions[offset + 1] * scale, hopf.pointScale * (0.3 + 0.25 * depth + 0.22 * emphasis), 0, 2 * Math.PI)
-        context.fill()
+        const sample = model.samples[index]
+        const depth = Math.max(0, Math.min(1, (positions[offset + 2] + 1) / 2))
+        const emphasis = sample.emphasis * pose.alpha
+        const radius = hopf.pointScale * (sample.tracer
+          ? 0.44 + 0.3 * depth + 0.12 * emphasis
+          : 0.2 + 0.24 * depth + 0.08 * emphasis)
+          * perspectiveAt(positions[offset + 2])
+        const size = radius * 32 / 15
+        if (sample.tracer) {
+          const haloSize = radius * 7
+          context.globalAlpha = 0.1 + 0.18 * depth
+          context.drawImage(haloSprites[colorIndices[index]], positions[offset] - haloSize / 2,
+            positions[offset + 1] - haloSize / 2, haloSize, haloSize)
+        }
+        context.globalAlpha = sample.tracer
+          ? 0.34 + 0.4 * depth + 0.18 * emphasis
+          : 0.065 + 0.24 * depth ** 1.4 + 0.1 * emphasis
+        context.drawImage(particleSprites[colorIndices[index]], positions[offset] - size / 2,
+          positions[offset + 1] - size / 2, size, size)
       }
       context.globalAlpha = 1
     }
@@ -160,13 +200,47 @@
     const updateColors = () => {
       const style = getComputedStyle(plot)
       const lightness = Number(style.getPropertyValue('--hopf-lightness'))
-      const hues = [210, 184, 238, 32]
-      guideColors = hues.map((hue) => `hsl(${hue} 28% ${lightness}%)`)
+      const hues = [207, 168, 226, 38]
+      const saturations = [25, 26, 17, 38]
+      guideColors = hues.map((hue, index) => `hsl(${hue} ${saturations[index]}% ${lightness}%)`)
+      // Cache lit spheres once per palette change, avoiding 10,000 gradient
+      // allocations per frame while keeping the light fixed at the upper left.
+      particleSprites = []
+      haloSprites = []
       palette = Array.from({ length: paletteSize }, (_, index) => {
         const tone = Math.floor(index / speedSteps)
         const speed = (index % speedSteps) / (speedSteps - 1)
-        const hue = hues[tone] + (tone === 3 ? 8 : -12) * speed
-        return `hsl(${hue} ${tone === 3 ? 42 : 28}% ${lightness + 8 * speed}%)`
+        const hue = hues[tone] + (tone === 3 ? 3 : -4) * speed
+        const saturation = saturations[tone]
+        const baseLightness = lightness + 4 * speed
+        const color = (offset: number) => `hsl(${hue} ${saturation}% ${Math.max(8, Math.min(98, baseLightness + offset))}%)`
+        const sprite = document.createElement('canvas')
+        sprite.width = sprite.height = 32
+        const spriteContext = sprite.getContext('2d')!
+        const shading = spriteContext.createRadialGradient(11, 10, 0, 14, 13, 19)
+        shading.addColorStop(0, color(34))
+        shading.addColorStop(0.24, color(19))
+        shading.addColorStop(0.52, color(3))
+        shading.addColorStop(0.8, color(-10))
+        shading.addColorStop(1, color(-22))
+        spriteContext.fillStyle = shading
+        spriteContext.beginPath()
+        spriteContext.arc(16, 16, 15, 0, 2 * Math.PI)
+        spriteContext.fill()
+        particleSprites.push(sprite)
+
+        const halo = document.createElement('canvas')
+        halo.width = halo.height = 32
+        const haloContext = halo.getContext('2d')!
+        const glow = haloContext.createRadialGradient(16, 16, 0, 16, 16, 16)
+        const glowColor = (alpha: number) => `hsl(${hue} ${saturation}% ${baseLightness}% / ${alpha})`
+        glow.addColorStop(0, glowColor(0.5))
+        glow.addColorStop(0.3, glowColor(0.2))
+        glow.addColorStop(1, glowColor(0))
+        haloContext.fillStyle = glow
+        haloContext.fillRect(0, 0, 32, 32)
+        haloSprites.push(halo)
+        return color(0)
       })
       render()
     }
@@ -174,7 +248,7 @@
     const tick = (now: number) => {
       if (previousTime) elapsed += (now - previousTime) / 1000
       previousTime = now
-      if (now - lastRender >= 1000 / 30) {
+      if (now - lastRender >= 1000 / 60 - 0.5) {
         render(true)
         lastRender = now
       }
@@ -276,7 +350,7 @@
     position: absolute;
     top: 10px;
     right: 22px;
-    width: min(360px, 45vw);
+    width: min(384px, 48vw);
     margin: 0;
   }
 

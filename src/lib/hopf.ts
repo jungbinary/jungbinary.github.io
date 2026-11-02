@@ -13,15 +13,15 @@ export const hopf = {
   fiberCount: 32,
   particleCount: 10000,
   pointScale: 1.55,
-  transportDuration: 7,
-  hopfHoldDuration: 10,
-  gaussianHoldDuration: 0.5,
-  flowSpeed: 0.24,
+  transportDuration: 8,
+  hopfHoldDuration: 12,
+  gaussianHoldDuration: 0.75,
+  flowSpeed: 0.2,
   twist: 0.65,
   bend: 0.14,
   sigma: 0.007,
-  trailDuration: 0.5,
-  rotationSpeed: 2 * Math.PI / 18,
+  trailDuration: 0.9,
+  rotationSpeed: 2 * Math.PI / 30,
   tilt: 0.82,
 }
 
@@ -89,7 +89,7 @@ export function createHopfSamples(random = Math.random) {
       samples.push({
         source, noise, fiber: fiberIndex, phase,
         emphasis: Math.max(0, Math.cos(2 * phase + fiber.phase)) ** 18,
-        tracer: index % 8 === 0,
+        tracer: index % 32 === 0,
       })
     })
   })
