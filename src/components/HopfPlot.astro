@@ -2,7 +2,7 @@
   <button
     class="hopf-surface"
     type="button"
-    aria-label="Gaussian to Hopf fibration: click to resample"
+    aria-label="Gaussian transport through Hopf fibration, Lorenz attractor, and Boy's surface: click to restart"
     aria-describedby="hopf-description"
     data-hopf-surface
   >
@@ -10,41 +10,45 @@
   </button>
   <a
     class="hopf-center-target"
-    href="https://en.wikipedia.org/wiki/Flow_matching"
+    href="https://en.wikipedia.org/wiki/Hopf_fibration"
     target="_blank"
     rel="noopener noreferrer"
-    aria-label="Flow matching on Wikipedia (opens in a new tab)"
+    aria-label="Hopf fibration on Wikipedia (opens in a new tab)"
     data-hopf-center
   ></a>
   <span class="hopf-cursor-hint" aria-hidden="true" data-hopf-cursor-hint>Click!</span>
   <span id="hopf-description" class="hopf-description">
-    A Gaussian cloud flows into 32 linked circles of the Hopf fibration and back
-    in a continuous loop. 10,000 particles circulate along the fibers with short,
-    delicate trails while the entire structure rotates once every 30 seconds.
-    Neighboring particles follow coordinated paths. Restrained blue, jade, and champagne
-    accents brighten with particle speed. This is analytic transport inspired by
-    flow matching, without model training. Softly lit particles grow larger and
-    clearer toward the viewer. Click the plot to resample and restart.
-    The center links to the Flow Matching Wikipedia article in a new tab.
+    10,000 particles flow from a Gaussian cloud into the Hopf fibration, return
+    to a Gaussian, trace the Lorenz attractor, return to a Gaussian, and form
+    Boy's surface before repeating. Short, delicate trails follow the motion
+    while each structure slowly rotates.
+    Fine, depth-shaded threads connect blue, jade, lavender, and amber particles.
+    Neighboring particles follow coordinated paths, with accents brightening
+    with particle speed. This is analytic transport inspired by flow matching,
+    without model training. Click the plot to resample and restart.
+    The center links to the current structure's Wikipedia article in a new tab.
   </span>
   <span class="hopf-description" role="status" data-hopf-status></span>
 </figure>
 
 <script>
-  import { createHopfSamples, createHopfFrame, hopfParticle, hopf, rotateHopf } from '../lib/hopf'
+  import { hopf } from '../lib/hopf'
+  import { createFlowSamples, createFlowFrame, createFlowProjection, flowParticle, flowPerspective, flowTargets, rotateFlow } from '../lib/flow'
 
   document.querySelectorAll<HTMLElement>('[data-hopf-plot]').forEach((plot) => {
     const surface = plot.querySelector<HTMLButtonElement>('[data-hopf-surface]')
     const canvas = plot.querySelector<HTMLCanvasElement>('[data-hopf-canvas]')
     const cursorHint = plot.querySelector<HTMLElement>('[data-hopf-cursor-hint]')
+    const centerTarget = plot.querySelector<HTMLAnchorElement>('[data-hopf-center]')
     const status = plot.querySelector<HTMLElement>('[data-hopf-status]')
     const context = canvas?.getContext('2d')
-    if (!surface || !canvas || !context || !cursorHint || !status) return
+    if (!surface || !canvas || !context || !cursorHint || !centerTarget || !status) return
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
     const desktop = window.matchMedia('(min-width: 641px)')
-    let model = createHopfSamples()
-    let elapsed = 0
+    let model = createFlowSamples()
+    let activeTarget = flowTargets.hopf
+    let elapsed = reducedMotion.matches ? hopf.transportDuration : 0
     let previousTime = 0
     let lastRender = 0
     let frame = 0
@@ -55,85 +59,95 @@
     let guideColors: string[] = []
     const history: { time: number; positions: Float32Array }[] = []
     const speedSteps = 8
-    const paletteSize = 4 * speedSteps
-    const perspectiveAt = (depth: number) => 1 / (1 - 0.28 * depth)
+    const toneSteps = 6
+    const toneCount = 4 * toneSteps
+    const paletteSize = toneCount * speedSteps
+    const depthSteps = 12
+    const positions = new Float32Array(hopf.particleCount * 3)
+    const colorIndices = new Uint8Array(hopf.particleCount)
+    const lights = new Float32Array(hopf.particleCount)
+    const layers: number[][] = Array.from({ length: depthSteps }, () => [])
+    const groups: number[][] = Array.from({ length: paletteSize }, () => [])
+    const toneIndex = (tone: number) => Math.round(tone * toneSteps) % toneCount
+    const depthLayer = (depth: number) => Math.max(0, Math.min(depthSteps - 1,
+      Math.floor((depth + 1) / 2 * depthSteps)))
 
     const render = (recordHistory = false) => {
       const seconds = elapsed
-      const pose = createHopfFrame(seconds)
-      const viewRadius = (1 - pose.alpha) * model.sourceRadius + pose.alpha * model.targetRadius + pose.bend
-      const scale = 102 / viewRadius
+      const pose = createFlowFrame(seconds)
+      if (plot.dataset.flowShape !== pose.shape) {
+        plot.dataset.flowShape = pose.shape
+        activeTarget = flowTargets[pose.shape]
+        centerTarget.href = activeTarget.href
+        centerTarget.setAttribute('aria-label', `${activeTarget.label} on Wikipedia (opens in a new tab)`)
+        if (cursorHint.dataset.center === 'true') cursorHint.textContent = activeTarget.label
+      }
+      plot.dataset.flowPhase = pose.alpha === 0 ? 'gaussian' : pose.alpha === 1 ? 'formed'
+        : pose.alphaVelocity > 0 ? 'forming' : 'returning'
+      const { viewRadius, scale, centerX, centerY } = createFlowProjection(model, pose)
+      const trailDuration = pose.shape === 'hopf' ? 0.45 : hopf.trailDuration
+      const calmness = pose.shape === 'hopf' ? 1 - 0.22 * pose.alpha : 1
       const count = model.samples.length
-      const positions = new Float32Array(count * 3)
-      const colorIndices = new Uint8Array(count)
-      const groups: number[][] = Array.from({ length: paletteSize }, () => [])
-      const order = Array.from({ length: count }, (_, index) => index)
+      layers.forEach((layer) => { layer.length = 0 })
+      groups.forEach((group) => { group.length = 0 })
       for (let index = 0; index < count; index++) {
         const sample = model.samples[index]
-        const fiber = model.fibers[sample.fiber]
-        const state = hopfParticle(sample, fiber, pose)
-        const rotated = rotateHopf(state.point, pose)
+        const state = flowParticle(sample, model, pose)
+        const rotated = rotateFlow(state.point, pose)
         const offset = index * 3
         const depth = rotated.z / viewRadius
-        const perspective = perspectiveAt(depth)
+        const perspective = flowPerspective(depth)
         // Store screen coordinates so trails share the particles' perspective
         // and retain the scale at which each historical frame was drawn.
-        positions[offset] = 160 + rotated.x * scale * perspective
-        positions[offset + 1] = 116 - rotated.y * scale * perspective
+        positions[offset] = centerX + rotated.x * scale * perspective
+        positions[offset + 1] = centerY - rotated.y * scale * perspective
         positions[offset + 2] = depth
         // dX/dtau excludes the camera's rotation, so color measures particle flow.
         const speed = Math.hypot(state.velocity.x, state.velocity.y, state.velocity.z)
         const speedBin = Math.min(speedSteps - 1, Math.floor((1 - Math.exp(-speed / 0.8)) * speedSteps))
-        const bin = fiber.tone * speedSteps + speedBin
+        const bin = toneIndex(state.tone) * speedSteps + speedBin
         colorIndices[index] = bin
+        lights[index] = state.light
+        layers[depthLayer(depth)].push(index)
         if (sample.tracer) groups[bin].push(index)
       }
-      order.sort((a, b) => positions[a * 3 + 2] - positions[b * 3 + 2])
       context.clearRect(0, 0, 320, 232)
 
-      // Depth-faded threads support the silhouette, with more light on the
-      // near side and room for the pearl-like tracers to carry the motion.
+      // Draw threads and particles in shared depth layers so the front fibers
+      // stay crisp while the back of the structure softly recedes.
       const reveal = Math.max(0, (pose.alpha - 0.35) / 0.65)
+      const { strength, width } = model.guides[pose.shape][0]
+      const threads: (Path2D | undefined)[] = Array(toneCount * depthSteps)
       if (reveal > 0) {
-        const depthSteps = 6
-        const threads = Array.from({ length: 4 * depthSteps }, () => new Path2D())
-        model.fibers.forEach((fiber) => {
+        model.guides[pose.shape].forEach((guide) => {
           let previous: { x: number; y: number; depth: number } | undefined
-          fiber.guide.forEach((point, index) => {
-            const p = rotateHopf(point, pose)
+          guide.points.forEach((point, index) => {
+            const p = rotateFlow(point, pose)
             const depth = p.z / viewRadius
-            const perspective = perspectiveAt(depth)
-            const x = 160 + p.x * scale * perspective
-            const y = 116 - p.y * scale * perspective
+            const perspective = flowPerspective(depth)
+            const x = centerX + p.x * scale * perspective
+            const y = centerY - p.y * scale * perspective
             if (index > 0 && previous) {
-              const level = Math.max(0, Math.min(depthSteps - 1,
-                Math.floor(((depth + previous.depth) / 4 + 0.5) * depthSteps)))
-              const thread = threads[fiber.tone * depthSteps + level]
+              const level = depthLayer((depth + previous.depth) / 2)
+              const bin = toneIndex(guide.tone) * depthSteps + level
+              const thread = threads[bin] ??= new Path2D()
               thread.moveTo(previous.x, previous.y)
               thread.lineTo(x, y)
             }
             previous = { x, y, depth }
           })
         })
-        context.lineCap = 'round'
-        for (let level = 0; level < depthSteps; level++) {
-          const depth = level / (depthSteps - 1)
-          context.lineWidth = 0.3 + 0.22 * depth
-          context.globalAlpha = reveal * (0.035 + 0.16 * depth ** 1.5)
-          for (let tone = 0; tone < 4; tone++) {
-            context.strokeStyle = guideColors[tone]
-            context.stroke(threads[tone * depthSteps + level])
-          }
-        }
       }
 
       if (recordHistory && !reducedMotion.matches) {
-        if (!history.length || seconds > history[history.length - 1].time) history.push({ time: seconds, positions })
-        while (history.length > 1 && history[1].time < seconds - hopf.trailDuration) history.shift()
+        if (!history.length || seconds > history[history.length - 1].time) {
+          history.push({ time: seconds, positions: positions.slice() })
+        }
+        while (history.length > 1 && history[1].time < seconds - trailDuration) history.shift()
       }
       if (!reducedMotion.matches && history.length > 1) {
         const trail: typeof history = [{ time: seconds, positions }]
-        for (let age = 0.075; age <= hopf.trailDuration; age += 0.075) {
+        for (let age = 0.075; age <= trailDuration; age += 0.075) {
           const target = seconds - age
           if (target < history[0].time) break
           let nearest = history[0]
@@ -146,11 +160,12 @@
         context.lineCap = 'round'
         for (let segment = trail.length - 1; segment > 0; segment--) {
           const freshness = 1 - segment / trail.length
-          context.globalAlpha = 0.015 + 0.24 * freshness ** 1.6
-          context.lineWidth = 0.2 + 0.55 * freshness
+          context.globalAlpha = (0.025 + 0.3 * freshness ** 1.8) * calmness
+          context.lineWidth = 0.15 + 0.65 * freshness
           const older = trail[segment].positions
           const newer = trail[segment - 1].positions
           for (let bin = 0; bin < paletteSize; bin++) {
+            if (!groups[bin].length) continue
             context.strokeStyle = palette[bin]
             context.beginPath()
             for (const index of groups[bin]) {
@@ -163,27 +178,47 @@
         }
       }
 
-      for (const index of order) {
-        const offset = index * 3
-        const sample = model.samples[index]
-        const depth = Math.max(0, Math.min(1, (positions[offset + 2] + 1) / 2))
-        const emphasis = sample.emphasis * pose.alpha
-        const radius = hopf.pointScale * (sample.tracer
-          ? 0.44 + 0.3 * depth + 0.12 * emphasis
-          : 0.2 + 0.24 * depth + 0.08 * emphasis)
-          * perspectiveAt(positions[offset + 2])
-        const size = radius * 32 / 15
-        if (sample.tracer) {
-          const haloSize = radius * 7
-          context.globalAlpha = 0.1 + 0.18 * depth
-          context.drawImage(haloSprites[colorIndices[index]], positions[offset] - haloSize / 2,
-            positions[offset + 1] - haloSize / 2, haloSize, haloSize)
+      context.lineCap = 'round'
+      for (let level = 0; level < depthSteps; level++) {
+        const layerDepth = level / (depthSteps - 1)
+        if (reveal > 0) {
+          for (let tone = 0; tone < toneCount; tone++) {
+            const thread = threads[tone * depthSteps + level]
+            if (!thread) continue
+            context.strokeStyle = guideColors[tone]
+            // A restrained bloom around the near-side strands softens their edges.
+            context.lineWidth = 2.4
+            context.globalAlpha = reveal * strength * 0.035 * layerDepth ** 2
+            context.stroke(thread)
+            context.lineWidth = width * (0.3 + 0.48 * layerDepth)
+            context.globalAlpha = Math.min(1, reveal * strength * (0.075 + 0.8 * layerDepth ** 1.4))
+            context.stroke(thread)
+          }
         }
-        context.globalAlpha = sample.tracer
-          ? 0.34 + 0.4 * depth + 0.18 * emphasis
-          : 0.065 + 0.24 * depth ** 1.4 + 0.1 * emphasis
-        context.drawImage(particleSprites[colorIndices[index]], positions[offset] - size / 2,
-          positions[offset + 1] - size / 2, size, size)
+        for (const index of layers[level]) {
+          const offset = index * 3
+          const sample = model.samples[index]
+          const depth = Math.max(0, Math.min(1, (positions[offset + 2] + 1) / 2))
+          const emphasis = sample.emphasis * pose.alpha
+          const surfaceShade = pose.shape === 'boys' ? 1 + pose.alpha * (0.6 * lights[index] - 0.3) : 1
+          const radius = hopf.pointScale * (sample.tracer
+            ? 0.42 + 0.34 * depth + 0.15 * emphasis
+            : 0.19 + 0.22 * depth + 0.06 * emphasis)
+            * flowPerspective(positions[offset + 2]) * (pose.shape === 'boys' ? 1 + 0.15 * pose.alpha : 1)
+          const size = radius * 32 / 15
+          if (sample.tracer) {
+            const haloSize = radius * 8
+            context.globalAlpha = (0.12 + 0.2 * depth) * calmness
+            context.drawImage(haloSprites[colorIndices[index]], positions[offset] - haloSize / 2,
+              positions[offset + 1] - haloSize / 2, haloSize, haloSize)
+          }
+          context.globalAlpha = (sample.tracer
+            ? 0.4 + 0.42 * depth + 0.16 * emphasis
+            : (0.1 + 0.3 * depth ** 1.4 + 0.08 * emphasis)
+              * (1 - (pose.shape === 'boys' ? 0.38 : 0.65) * reveal) * surfaceShade) * calmness
+          context.drawImage(particleSprites[colorIndices[index]], positions[offset] - size / 2,
+            positions[offset + 1] - size / 2, size, size)
+        }
       }
       context.globalAlpha = 1
     }
@@ -200,20 +235,35 @@
     const updateColors = () => {
       const style = getComputedStyle(plot)
       const lightness = Number(style.getPropertyValue('--hopf-lightness'))
-      const hues = [207, 168, 226, 38]
-      const saturations = [25, 26, 17, 38]
-      guideColors = hues.map((hue, index) => `hsl(${hue} ${saturations[index]}% ${lightness}%)`)
+      const hues = [212, 169, 244, 32]
+      const saturations = [43, 36, 28, 51]
+      const rgb = (hue: number, saturation: number, lightness: number) => {
+        const s = saturation / 100, l = lightness / 100
+        const a = s * Math.min(l, 1 - l)
+        return [0, 8, 4].map((n) => {
+          const k = (n + hue / 30) % 12
+          return 255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))
+        })
+      }
+      // Blend the four inks in RGB, keeping the intermediate colors soft
+      // instead of introducing a saturated rainbow between the anchors.
+      const colorAt = (tone: number, speed: number, offset = 0) => {
+        const first = Math.floor(tone) % 4, second = (first + 1) % 4
+        const mix = tone % 1
+        const color = (i: number) => rgb(hues[i] + (i === 3 ? 3 : -4) * speed, saturations[i],
+          Math.max(8, Math.min(98, lightness + 4 * speed + offset)))
+        const a = color(first), b = color(second)
+        return a.map((value, i) => Math.round(value + (b[i] - value) * mix)).join(' ')
+      }
+      guideColors = Array.from({ length: toneCount }, (_, i) => `rgb(${colorAt(i / toneSteps, 0)})`)
       // Cache lit spheres once per palette change, avoiding 10,000 gradient
       // allocations per frame while keeping the light fixed at the upper left.
       particleSprites = []
       haloSprites = []
       palette = Array.from({ length: paletteSize }, (_, index) => {
-        const tone = Math.floor(index / speedSteps)
+        const tone = Math.floor(index / speedSteps) / toneSteps
         const speed = (index % speedSteps) / (speedSteps - 1)
-        const hue = hues[tone] + (tone === 3 ? 3 : -4) * speed
-        const saturation = saturations[tone]
-        const baseLightness = lightness + 4 * speed
-        const color = (offset: number) => `hsl(${hue} ${saturation}% ${Math.max(8, Math.min(98, baseLightness + offset))}%)`
+        const color = (offset: number) => `rgb(${colorAt(tone, speed, offset)})`
         const sprite = document.createElement('canvas')
         sprite.width = sprite.height = 32
         const spriteContext = sprite.getContext('2d')!
@@ -233,7 +283,7 @@
         halo.width = halo.height = 32
         const haloContext = halo.getContext('2d')!
         const glow = haloContext.createRadialGradient(16, 16, 0, 16, 16, 16)
-        const glowColor = (alpha: number) => `hsl(${hue} ${saturation}% ${baseLightness}% / ${alpha})`
+        const glowColor = (alpha: number) => `rgb(${colorAt(tone, speed)} / ${alpha})`
         glow.addColorStop(0, glowColor(0.5))
         glow.addColorStop(0.3, glowColor(0.2))
         glow.addColorStop(1, glowColor(0))
@@ -246,7 +296,7 @@
     }
 
     const tick = (now: number) => {
-      if (previousTime) elapsed += (now - previousTime) / 1000
+      if (previousTime) elapsed += Math.min((now - previousTime) / 1000, 0.1)
       previousTime = now
       if (now - lastRender >= 1000 / 60 - 0.5) {
         render(true)
@@ -273,7 +323,7 @@
       }
       const nearCenter = event.target instanceof Element
         && event.target.closest('[data-hopf-center]') !== null
-      cursorHint.textContent = 'Click!'
+      cursorHint.textContent = nearCenter ? activeTarget.label : 'Click!'
       cursorHint.dataset.center = String(nearCenter)
       const x = event.clientX + 14 + cursorHint.offsetWidth > window.innerWidth - 8
         ? event.clientX - cursorHint.offsetWidth - 14
@@ -292,15 +342,18 @@
       }
     })
     surface.addEventListener('click', () => {
-      model = createHopfSamples()
-      elapsed = 0
+      model = createFlowSamples()
+      elapsed = reducedMotion.matches ? hopf.transportDuration : 0
       previousTime = 0
       history.length = 0
       updateColors()
-      status.textContent = 'New Gaussian samples are flowing into the Hopf fibration.'
+      status.textContent = reducedMotion.matches
+        ? 'New samples shown on the Hopf fibration.'
+        : "New Gaussian samples are flowing through Hopf fibration, Lorenz attractor, and Boy's surface."
     })
     reducedMotion.addEventListener('change', () => {
       history.length = 0
+      if (reducedMotion.matches) elapsed = hopf.transportDuration
       render()
       sync()
     })
@@ -345,7 +398,7 @@
 
 <style>
   .hopf-plot {
-    --hopf-lightness: 38;
+    --hopf-lightness: 44;
     --hopf-accent: #bb714a;
     position: absolute;
     top: 10px;
@@ -355,7 +408,7 @@
   }
 
   :global(html[data-theme='dark']) .hopf-plot {
-    --hopf-lightness: 64;
+    --hopf-lightness: 69;
     --hopf-accent: #e9ad83;
   }
 

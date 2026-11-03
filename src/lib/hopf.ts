@@ -12,15 +12,15 @@ export type HopfSample = {
 export const hopf = {
   fiberCount: 32,
   particleCount: 10000,
-  pointScale: 1.55,
+  pointScale: 1.25,
   transportDuration: 8,
   hopfHoldDuration: 12,
   gaussianHoldDuration: 0.75,
   flowSpeed: 0.2,
   twist: 0.65,
   bend: 0.14,
-  sigma: 0.007,
-  trailDuration: 0.9,
+  sigma: 0.0035,
+  trailDuration: 0.65,
   rotationSpeed: 2 * Math.PI / 30,
   tilt: 0.82,
 }
@@ -47,8 +47,11 @@ export function createHopfSamples(random = Math.random) {
   for (let index = 0; index < hopf.fiberCount; index++) {
     const isInner = index % 4 === 0
     const eta = isInner ? 0.49 : 0.77
+    const outerIndex = outer
     const phase = isInner ? tau * (inner++ + 0.5) / 8 : tau * outer++ / 24
-    const tone = index % 8 === 3 ? 3 : isInner ? 1 : index % 3 === 0 ? 2 : 0
+    // Adjacent fibers share a hue, giving the linked circles a readable sweep
+    // from blue through jade to a small warm accent.
+    const tone = isInner ? 2 : outerIndex < 10 ? 0 : outerIndex < 20 ? 1 : 3
     const guide = Array.from({ length: 129 }, (_, step) => hopfFiberPoint(eta, phase, tau * step / 128))
     fibers.push({ eta, phase, tone, guide })
   }
@@ -89,7 +92,7 @@ export function createHopfSamples(random = Math.random) {
       samples.push({
         source, noise, fiber: fiberIndex, phase,
         emphasis: Math.max(0, Math.cos(2 * phase + fiber.phase)) ** 18,
-        tracer: index % 32 === 0,
+        tracer: index % 24 === 0,
       })
     })
   })

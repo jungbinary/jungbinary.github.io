@@ -8,6 +8,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "test:hmc": "node --experimental-strip-types --test scripts/test-hmc.mjs",
     "check": "astro check && astro build"
   },
   "engines": {

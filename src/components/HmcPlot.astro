@@ -1,0 +1,396 @@
+<figure class="hmc-plot" data-hmc-plot>
+  <div class="hmc-surface" tabindex="0" role="group"
+    aria-label="Interactive 3D Hamiltonian Monte Carlo sample cloud"
+    aria-describedby="hmc-description" data-hmc-surface>
+    <canvas width="640" height="464" aria-hidden="true" data-hmc-canvas></canvas>
+  </div>
+  <a class="hmc-center" href="https://en.wikipedia.org/wiki/Hamiltonian_Monte_Carlo"
+    target="_blank" rel="noopener noreferrer"
+    aria-label="Hamiltonian Monte Carlo on Wikipedia (opens in a new tab)" data-hmc-center></a>
+  <div class="hmc-controls">
+    <button type="button" data-hmc-pause aria-label="Pause sampling" title="Pause sampling (Space)">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path class="hmc-pause-icon" d="M5 3.5v9M11 3.5v9" /><path class="hmc-play-icon" d="m5 3 7 5-7 5Z" /></svg>
+    </button>
+    <button type="button" data-hmc-reset aria-label="Reset the 3D view" title="Reset view (R)">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 6.5a5.3 5.3 0 1 1 .5 4.1M3 2.8v3.7h3.7" /></svg>
+    </button>
+  </div>
+  <span class="hmc-cursor-hint" aria-hidden="true" data-hmc-hint>Click!</span>
+  <span class="hmc-sr-only" id="hmc-description">
+    A cloud of retained Hamiltonian Monte Carlo samples reveals a curved,
+    three-dimensional probability distribution. Every axis is a sampled variable.
+    The faint cloud contains earlier HMC samples. A blue sphere follows a
+    proposed leapfrog trajectory; brighter stationary beads mark states retained
+    by the current chain. Gaussian momentum is refreshed
+    before each proposal, and a Metropolis test accepts or rejects its endpoint.
+    Rejection leaves the chain at its previous state. Drag to orbit the cloud,
+    click a sample to begin a new chain nearby, or click the center for Wikipedia.
+    Space pauses, Enter begins a new chain, arrow keys rotate, and R resets the view.
+    Below the cloud, a histogram of x accumulates the current chain's retained
+    states, including repeats after rejection. A faint curve shows its Gaussian
+    target marginal. Restarting the chain also clears this histogram.
+  </span>
+  <span class="hmc-sr-only" role="status" data-hmc-status></span>
+</figure>
+
+<script>
+  import { createChain, createProjection, hmc, pickPosition, project, proposalPosition, propose } from '../lib/hmc'
+  import { ballRadius } from '../lib/minimax'
+  import type { Position } from '../lib/hmc'
+
+  document.querySelectorAll<HTMLElement>('[data-hmc-plot]').forEach((plot) => {
+    const surface = plot.querySelector<HTMLElement>('[data-hmc-surface]')
+    const canvas = plot.querySelector<HTMLCanvasElement>('[data-hmc-canvas]')
+    const hint = plot.querySelector<HTMLElement>('[data-hmc-hint]')
+    const pauseButton = plot.querySelector<HTMLButtonElement>('[data-hmc-pause]')
+    const resetButton = plot.querySelector<HTMLButtonElement>('[data-hmc-reset]')
+    const status = plot.querySelector<HTMLElement>('[data-hmc-status]')
+    const context = canvas?.getContext('2d')
+    if (!surface || !canvas || !context || !hint || !pauseButton || !resetButton || !status) return
+
+    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
+    const desktop = matchMedia('(min-width: 641px)')
+    const chain = createChain()
+    const reference = chain.samples.slice()
+    // Earlier HMC states establish the faint reference cloud. The current
+    // chain's counter and histogram start empty and grow with retained states.
+    const camera = { ...hmc.initialCamera }
+    let samples = chain.samples, recent: Position[] = []
+    let sampleCount = 0, proposal = propose(chain.q)
+    let elapsed = 0, previousTime = 0, lastRender = 0, frame = 0
+    let paused = false, inView = false, committed = false
+    let drag: { id: number; x: number; y: number; yaw: number; elevation: number; moved: boolean } | null = null
+    let colors: string[] = [], inks: string[] = [], halos: HTMLCanvasElement[] = []
+    let dark = false
+    let ballLight = '', ballEdge = ''
+    let bead = document.createElement('canvas')
+    const history: { path: Position[]; accepted: boolean }[] = []
+    const histogramBins = 36, histogramMin = -4 * hmc.sigmaX, histogramMax = 4 * hmc.sigmaX
+    const histogram = new Uint32Array(histogramBins)
+    const barHeights = new Float32Array(histogramBins)
+    let latestBin = -1
+    const recordSample = (q: Position) => {
+      if (q.x < histogramMin || q.x > histogramMax) return -1
+      const bin = Math.min(histogramBins - 1, Math.floor((q.x - histogramMin) / (histogramMax - histogramMin) * histogramBins))
+      histogram[bin]++
+      return bin
+    }
+    const toneIndex = (q: Position) => Math.max(0, Math.min(23, Math.round((Math.tanh(q.x / 1.2) + 1) / 2 * 23)))
+    const edgeFade = (x: number, y: number) => Math.max(0, Math.min(1, (x - 5) / 14, (315 - x) / 14, (y - 4) / 14, (173 - y) / 14))
+
+    const commitProposal = () => {
+      if (committed) return
+      samples.push({ ...proposal.next }); recent.push({ ...proposal.next }); sampleCount++
+      latestBin = recordSample(proposal.next)
+      if (samples.length > 1100) samples.shift()
+      if (recent.length > 24) recent.shift()
+      history.push({ path: proposal.path, accepted: proposal.accepted })
+      if (history.length > 4) history.shift()
+      committed = true
+    }
+
+    const render = () => {
+      if (reducedMotion.matches) commitProposal()
+      const view = createProjection(camera)
+      const progress = reducedMotion.matches ? 1 : Math.max(0, Math.min(1, (elapsed - hmc.momentumDuration) / proposal.duration))
+      const decided = reducedMotion.matches || elapsed >= hmc.momentumDuration + proposal.duration
+      const phase = decided ? (proposal.accepted ? 'accepted' : 'rejected') : elapsed < hmc.momentumDuration ? 'momentum' : 'proposal'
+      plot.dataset.phase = phase; plot.dataset.samples = String(sampleCount); plot.dataset.paused = String(paused)
+      plot.dataset.cameraYaw = camera.yaw.toFixed(4)
+      context.clearRect(0, 0, 320, 232)
+      context.save(); context.beginPath(); context.rect(0, 0, 320, 176); context.clip()
+
+      const dots = samples.map(q => ({ q, p: project(q, camera, view) }))
+      dots.sort((a, b) => a.p.depth - b.p.depth)
+      // Broad, extremely soft kernels make the empirical density legible;
+      // each sharp core remains an actual retained state of the Markov chain.
+      for (const { q, p } of dots) {
+        const fade = edgeFade(p.x, p.y)
+        if (!fade) continue
+        const near = Math.max(0, Math.min(1, (p.depth + 3) / 6))
+        const tone = toneIndex(q), size = 9 + 7 * near
+        context.globalAlpha = fade * (dark ? 0.045 + 0.045 * near : 0.08 + 0.1 * near)
+        context.drawImage(halos[tone], p.x - size / 2, p.y - size / 2, size, size)
+        context.fillStyle = inks[tone]; context.globalAlpha = fade * (dark ? 0.18 + 0.35 * near : 0.27 + 0.43 * near)
+        context.beginPath(); context.arc(p.x, p.y, dark ? 0.3 + 0.4 * near : 0.4 + 0.48 * near, 0, 2 * Math.PI); context.fill()
+      }
+
+      const drawPath = (points: Position[], color: string, opacity: number, width: number, dashed = false) => {
+        context.strokeStyle = color; context.globalAlpha = opacity; context.lineWidth = width
+        context.setLineDash(dashed ? [1.2, 3] : []); context.beginPath()
+        points.forEach((q, i) => { const p = project(q, camera, view); i ? context.lineTo(p.x, p.y) : context.moveTo(p.x, p.y) })
+        context.stroke(); context.setLineDash([])
+      }
+      context.lineCap = 'round'; context.lineJoin = 'round'
+      // Discrete, stationary states have a quieter visual language than the
+      // continuous Hamiltonian proposal currently being traversed.
+      drawPath(recent, colors[1], 0.16, 0.55, true)
+      recent.forEach((q, i) => {
+        const p = project(q, camera, view), fade = edgeFade(p.x, p.y)
+        context.fillStyle = inks[toneIndex(q)]; context.globalAlpha = fade * (0.35 + 0.45 * i / recent.length)
+        context.beginPath(); context.arc(p.x, p.y, 0.9 + 0.5 * i / recent.length, 0, 2 * Math.PI); context.fill()
+      })
+      history.forEach((past, i) => {
+        if (past.path === proposal.path) return
+        drawPath(past.path, past.accepted ? colors[1] : colors[5], (dark ? 0.02 : 0.04) + (dark ? 0.065 : 0.1) * ((i + 1) / history.length) ** 2, 0.65, !past.accepted)
+      })
+      const q = proposalPosition(proposal, progress)
+      const count = Math.floor(progress * (proposal.path.length - 1))
+      const trail = proposal.path.slice(0, count + 1); trail.push(q)
+      const rejected = decided && !proposal.accepted
+      drawPath(trail, rejected ? colors[5] : colors[4], 0.065, 3.4, rejected)
+      drawPath(trail, rejected ? colors[5] : colors[4], 0.87, 1.1, rejected)
+
+      const anchor = project(proposal.initial, camera, view)
+      context.strokeStyle = colors[1]; context.lineWidth = 0.8; context.globalAlpha = 0.7
+      context.beginPath(); context.arc(anchor.x, anchor.y, 2.15, 0, 2 * Math.PI); context.stroke()
+      const returnTime = Math.min(1, Math.max(0, (elapsed - hmc.momentumDuration - proposal.duration) / 0.45))
+      const blend = reducedMotion.matches ? 1 : returnTime * returnTime * (3 - 2 * returnTime)
+      const position = rejected ? {
+        x: q.x + (proposal.initial.x - q.x) * blend,
+        y: q.y + (proposal.initial.y - q.y) * blend,
+        z: q.z + (proposal.initial.z - q.z) * blend,
+      } : q
+      const ball = project(position, camera, view)
+      if (phase === 'momentum') {
+        const p = proposal.initialMomentum
+        const arrow = project({ x: position.x + p.x * 0.24, y: position.y + p.y * 0.24, z: position.z + p.z * 0.24 }, camera, view)
+        const angle = Math.atan2(arrow.y - ball.y, arrow.x - ball.x)
+        context.strokeStyle = colors[4]; context.globalAlpha = 0.75; context.lineWidth = 0.8
+        context.beginPath(); context.moveTo(ball.x, ball.y); context.lineTo(arrow.x, arrow.y)
+        context.moveTo(arrow.x - 3 * Math.cos(angle - 0.45), arrow.y - 3 * Math.sin(angle - 0.45))
+        context.lineTo(arrow.x, arrow.y)
+        context.lineTo(arrow.x - 3 * Math.cos(angle + 0.45), arrow.y - 3 * Math.sin(angle + 0.45)); context.stroke()
+      }
+      if (decided && proposal.accepted) {
+        context.strokeStyle = colors[1]; context.globalAlpha = 0.6 * (1 - returnTime * 0.5); context.lineWidth = 0.85
+        context.beginPath(); context.arc(ball.x, ball.y, 2.3 + 4 * (1 - returnTime), 0, 2 * Math.PI); context.stroke()
+      }
+      // The blue sphere shares the minimax radius, banded shading, edge, and
+      // etched meridian. Here it represents a proposed 3D state, without a floor.
+      context.globalAlpha = 1
+      context.drawImage(bead, ball.x - ballRadius, ball.y - ballRadius, 2 * ballRadius, 2 * ballRadius)
+      context.strokeStyle = ballEdge; context.lineWidth = 0.5
+      context.beginPath(); context.arc(ball.x, ball.y, ballRadius, 0, 2 * Math.PI); context.stroke()
+      let distance = 0
+      for (let i = 1; i < trail.length; i++) {
+        const a = trail[i - 1], b = trail[i]
+        distance += Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
+      }
+      const rolling = distance * view.scale / ballRadius
+      const next = project(proposalPosition(proposal, Math.min(1, progress + 0.005)), camera, view)
+      context.save(); context.translate(ball.x, ball.y); context.rotate(Math.atan2(next.y - ball.y, next.x - ball.x))
+      context.strokeStyle = ballLight; context.lineWidth = 0.4; context.globalAlpha = 0.2; context.beginPath()
+      let connected = false
+      for (let i = 0; i <= 72; i++) {
+        const theta = 2 * Math.PI * i / 72
+        if (Math.cos(rolling) * Math.cos(theta) < 0) { connected = false; continue }
+        const x = ballRadius * Math.sin(rolling) * Math.cos(theta), y = ballRadius * Math.sin(theta)
+        connected ? context.lineTo(x, y) : context.moveTo(x, y); connected = true
+      }
+      context.stroke(); context.restore(); context.restore(); context.globalAlpha = 1
+
+      // The marginal is independent of camera orientation. Bin counts use
+      // every retained state of this chain, including repeated rejected states.
+      const left = 48, width = 224, baseline = 218, height = 30
+      const binWidth = (histogramMax - histogramMin) / histogramBins
+      const densities = Array.from(histogram, count => sampleCount ? count / (sampleCount * binWidth) : 0)
+      const peak = Math.max(0.46, ...densities)
+      plot.dataset.histogramTotal = String(sampleCount)
+      plot.dataset.histogramBinned = String(histogram.reduce((sum, count) => sum + count, 0))
+      const step = width / histogramBins
+      for (let i = 0; i < histogramBins; i++) {
+        const target = densities[i] / peak * height
+        barHeights[i] += (target - barHeights[i]) * (reducedMotion.matches || paused ? 1 : 0.18)
+        const x = histogramMin + (i + 0.5) * binWidth
+        const fresh = i === latestBin && decided
+        context.fillStyle = fresh ? colors[4] : inks[toneIndex({ x, y: 0, z: 0 })]
+        context.globalAlpha = fresh ? 0.78 : dark ? 0.43 : 0.56
+        context.fillRect(left + i * step + 0.6, baseline - barHeights[i], step - 1.2, barHeights[i])
+      }
+      context.strokeStyle = colors[3]; context.globalAlpha = dark ? 0.25 : 0.3; context.lineWidth = 0.45
+      context.beginPath(); context.moveTo(left, baseline + 0.4); context.lineTo(left + width, baseline + 0.4); context.stroke()
+      context.strokeStyle = colors[1]; context.globalAlpha = dark ? 0.33 : 0.48; context.lineWidth = 0.8
+      context.beginPath()
+      for (let i = 0; i <= 128; i++) {
+        const x = histogramMin + i / 128 * (histogramMax - histogramMin)
+        const density = Math.exp(-0.5 * (x / hmc.sigmaX) ** 2) / (hmc.sigmaX * Math.sqrt(2 * Math.PI))
+        const sx = left + i / 128 * width, sy = baseline - density / peak * height
+        i ? context.lineTo(sx, sy) : context.moveTo(sx, sy)
+      }
+      context.stroke()
+      context.globalAlpha = 1
+    }
+
+    const resize = () => {
+      const ratio = Math.min(devicePixelRatio || 1, 2)
+      canvas.width = Math.max(320, Math.round(canvas.getBoundingClientRect().width * ratio))
+      canvas.height = Math.round(canvas.width * 232 / 320)
+      context.setTransform(canvas.width / 320, 0, 0, canvas.height / 232, 0, 0); render()
+    }
+    const updateColors = () => {
+      const style = getComputedStyle(plot)
+      dark = document.documentElement.dataset.theme === 'dark'
+      colors = ['--hmc-blue', '--hmc-jade', '--hmc-violet', '--hmc-rib', '--hmc-copper', '--hmc-rejected'].map(name => style.getPropertyValue(name).trim())
+      const parse = (hex: string) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))
+      const anchors = colors.slice(0, 3).map(parse)
+      inks = []; halos = []
+      for (let i = 0; i < 24; i++) {
+        const t = i / 23 * 2, a = Math.min(1, Math.floor(t)), mix = t - a
+        const rgb = anchors[a].map((c, j) => Math.round(c + (anchors[a + 1][j] - c) * mix)).join(' ')
+        inks.push(`rgb(${rgb})`)
+        const sprite = document.createElement('canvas'); sprite.width = sprite.height = 32
+        const c = sprite.getContext('2d')!, glow = c.createRadialGradient(16, 16, 0, 16, 16, 16)
+        glow.addColorStop(0, `rgb(${rgb} / 0.8)`); glow.addColorStop(0.3, `rgb(${rgb} / 0.35)`); glow.addColorStop(1, `rgb(${rgb} / 0)`)
+        c.fillStyle = glow; c.fillRect(0, 0, 32, 32); halos.push(sprite)
+      }
+      ballLight = style.getPropertyValue('--hmc-ball-light').trim(); ballEdge = style.getPropertyValue('--hmc-ball-edge').trim()
+      bead = document.createElement('canvas'); bead.width = bead.height = 48
+      const sphere = bead.getContext('2d')!, shading = sphere.createRadialGradient(14.4, 12, 0, 14.4, 12, 43.2)
+      const mid = style.getPropertyValue('--hmc-ball-mid').trim(), shadow = style.getPropertyValue('--hmc-ball-shadow').trim()
+      shading.addColorStop(0, ballLight); shading.addColorStop(0.48, ballLight)
+      shading.addColorStop(0.54, mid); shading.addColorStop(0.8, mid)
+      shading.addColorStop(0.86, shadow); shading.addColorStop(1, shadow)
+      sphere.fillStyle = shading; sphere.beginPath(); sphere.arc(24, 24, 24, 0, 2 * Math.PI); sphere.fill(); render()
+    }
+    const tick = (now: number) => {
+      const delta = previousTime ? Math.min((now - previousTime) / 1000, 0.1) : 0
+      previousTime = now; elapsed += delta * hmc.playbackRate
+      if (!drag) camera.yaw += delta * 0.029
+      if (elapsed >= hmc.momentumDuration + proposal.duration) commitProposal()
+      if (elapsed >= hmc.momentumDuration + proposal.duration + hmc.decisionDuration) {
+        proposal = propose(proposal.next); elapsed = 0; committed = false
+      }
+      if (now - lastRender >= 1000 / 40) { render(); lastRender = now }
+      frame = requestAnimationFrame(tick)
+    }
+    const sync = () => {
+      if (inView && desktop.matches && !document.hidden && !paused && !reducedMotion.matches) {
+        if (!frame) frame = requestAnimationFrame(tick)
+      } else { cancelAnimationFrame(frame); frame = 0; previousTime = 0 }
+    }
+    const start = (initial: Position) => {
+      samples = reference.slice(); recent = [{ ...initial }]; sampleCount = 0; history.length = 0
+      histogram.fill(0); barHeights.fill(0); latestBin = -1
+      proposal = propose(initial); elapsed = 0; committed = false; previousTime = 0
+      status.textContent = `New HMC chain at x = ${initial.x.toFixed(2)}, y = ${initial.y.toFixed(2)}, z = ${initial.z.toFixed(2)}.`
+      render(); sync()
+    }
+    const resetView = () => { Object.assign(camera, hmc.initialCamera); render() }
+    const togglePause = () => {
+      paused = !paused
+      pauseButton.setAttribute('aria-label', paused ? 'Resume sampling' : 'Pause sampling')
+      pauseButton.title = paused ? 'Resume sampling (Space)' : 'Pause sampling (Space)'
+      render(); sync()
+    }
+    const hideHint = () => { hint.dataset.visible = 'false' }
+    plot.addEventListener('pointermove', (event) => {
+      if (event.pointerType === 'touch' || drag?.moved || (event.target instanceof Element && event.target.closest('button'))) { hideHint(); return }
+      const center = event.target instanceof Element && !!event.target.closest('[data-hmc-center]')
+      hint.textContent = center ? 'Hamiltonian Monte Carlo' : 'Click!'; hint.dataset.center = String(center)
+      const x = event.clientX + 14 + hint.offsetWidth > innerWidth - 8 ? event.clientX - hint.offsetWidth - 14 : event.clientX + 14
+      const y = event.clientY + 16 + hint.offsetHeight > innerHeight - 8 ? event.clientY - hint.offsetHeight - 16 : event.clientY + 16
+      hint.style.transform = `translate3d(${x}px, ${y}px, 0)`; hint.dataset.visible = 'true'
+    })
+    surface.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return
+      drag = { id: event.pointerId, x: event.clientX, y: event.clientY, yaw: camera.yaw, elevation: camera.elevation, moved: false }
+      surface.setPointerCapture(event.pointerId)
+    })
+    surface.addEventListener('pointermove', (event) => {
+      if (!drag || drag.id !== event.pointerId) return
+      const dx = event.clientX - drag.x, dy = event.clientY - drag.y
+      if (Math.hypot(dx, dy) > 4) drag.moved = true
+      if (!drag.moved) return
+      camera.yaw = drag.yaw + dx * 0.009
+      camera.elevation = Math.max(-0.35, Math.min(1.2, drag.elevation + dy * 0.006))
+      plot.dataset.dragging = 'true'; hideHint(); render()
+    })
+    surface.addEventListener('pointerup', (event) => {
+      if (!drag || drag.id !== event.pointerId) return
+      const moved = drag.moved; drag = null; plot.dataset.dragging = 'false'
+      if (surface.hasPointerCapture(event.pointerId)) surface.releasePointerCapture(event.pointerId)
+      if (moved) return
+      const bounds = canvas.getBoundingClientRect()
+      start(pickPosition((event.clientX - bounds.left) / bounds.width * 320,
+        (event.clientY - bounds.top) / bounds.height * 232, samples, camera, createProjection(camera)))
+    })
+    const cancelDrag = () => { drag = null; plot.dataset.dragging = 'false'; hideHint() }
+    surface.addEventListener('pointercancel', cancelDrag); surface.addEventListener('lostpointercapture', cancelDrag)
+    plot.addEventListener('pointerleave', hideHint)
+    surface.addEventListener('keydown', (event) => {
+      if (event.key === ' ') { event.preventDefault(); togglePause() }
+      else if (event.key === 'Enter') { event.preventDefault(); start(reference[Math.floor(Math.random() * reference.length)]) }
+      else if (event.key.toLowerCase() === 'r') resetView()
+      else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+        event.preventDefault(); camera.yaw += event.key === 'ArrowLeft' ? -0.12 : event.key === 'ArrowRight' ? 0.12 : 0
+        camera.elevation = Math.max(-0.35, Math.min(1.2, camera.elevation + (event.key === 'ArrowUp' ? -0.07 : event.key === 'ArrowDown' ? 0.07 : 0))); render()
+      } else if (event.key === 'Escape') hideHint()
+    })
+    pauseButton.addEventListener('click', togglePause); resetButton.addEventListener('click', resetView)
+    reducedMotion.addEventListener('change', () => { render(); sync() }); desktop.addEventListener('change', sync)
+    document.addEventListener('visibilitychange', () => { hideHint(); sync() })
+    const visibilityObserver = new IntersectionObserver(([entry]) => { inView = entry.isIntersecting; sync() })
+    const resizeObserver = new ResizeObserver(resize), themeObserver = new MutationObserver(updateColors)
+    const observe = () => {
+      visibilityObserver.observe(plot); resizeObserver.observe(canvas)
+      themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    }
+    window.addEventListener('pagehide', () => {
+      cancelAnimationFrame(frame); frame = 0; previousTime = 0
+      visibilityObserver.disconnect(); resizeObserver.disconnect(); themeObserver.disconnect(); hideHint()
+    })
+    window.addEventListener('pageshow', (event) => { if (event.persisted) { observe(); updateColors(); sync() } })
+    updateColors(); resize(); observe()
+  })
+</script>
+
+<style>
+  .hmc-plot {
+    --hmc-blue: #3f6d94;
+    --hmc-jade: #3e8378;
+    --hmc-violet: #8975a3;
+    --hmc-rib: #83919e;
+    --hmc-copper: #a96335;
+    --hmc-rejected: #aa7a83;
+    --hmc-ball-light: #b7c6df;
+    --hmc-ball-mid: #8da2c6;
+    --hmc-ball-shadow: #6e85ae;
+    --hmc-ball-edge: #5e7398;
+    position: absolute; top: 20px; right: 38px;
+    width: min(360px, 45vw); margin: 0;
+  }
+  :global(html[data-theme='dark']) .hmc-plot {
+    --hmc-blue: #9abbd7;
+    --hmc-jade: #93c6b4;
+    --hmc-violet: #c0a9d3;
+    --hmc-rib: #82939f;
+    --hmc-copper: #e6b184;
+    --hmc-rejected: #c99aab;
+    --hmc-ball-light: #d3def1;
+    --hmc-ball-mid: #a8bddc;
+    --hmc-ball-shadow: #839cc4;
+    --hmc-ball-edge: #637fa7;
+  }
+  .hmc-surface { width: 100%; border-radius: 8px; outline: none; cursor: crosshair; touch-action: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .hmc-surface:focus-visible { outline: 1px solid var(--link-color); outline-offset: 2px; }
+  .hmc-plot[data-dragging='true'] .hmc-surface { cursor: grabbing; }
+  canvas { display: block; width: 100%; height: auto; aspect-ratio: 320 / 232; }
+  .hmc-center { position: absolute; top: 50%; left: 50%; width: 36px; height: 36px; transform: translate(-50%, -50%); border-radius: 50%; cursor: pointer; }
+  .hmc-center:focus-visible { outline: 1px solid var(--hmc-copper); outline-offset: 2px; }
+  .hmc-controls { position: absolute; top: 7px; right: 10px; display: flex; gap: 7px; align-items: center; opacity: 0; transition: opacity 0.16s ease; }
+  .hmc-plot:hover .hmc-controls, .hmc-controls:has(button:focus-visible) { opacity: 1; }
+  .hmc-controls button { display: grid; place-items: center; width: 20px; height: 22px; padding: 2px; border: 0; background: transparent; color: var(--muted-color); cursor: pointer; opacity: 0.4; transition: color 0.15s ease, opacity 0.15s ease; }
+  .hmc-controls svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+  .hmc-play-icon { display: none; }
+  .hmc-plot[data-paused='true'] .hmc-pause-icon { display: none; }
+  .hmc-plot[data-paused='true'] .hmc-play-icon { display: block; }
+  .hmc-controls button:hover, .hmc-controls button:focus-visible { color: var(--hmc-copper); opacity: 1; }
+  .hmc-controls button:focus-visible { outline: 1px solid var(--hmc-copper); outline-offset: 3px; }
+  .hmc-cursor-hint { position: fixed; top: 0; left: 0; z-index: 2; color: var(--muted-color); font-size: 11px; font-style: italic; line-height: 1.4; white-space: nowrap; text-shadow: 0 0 4px var(--page-bg), 0 0 2px var(--page-bg); opacity: 0; transition: opacity 0.15s ease; pointer-events: none; }
+  .hmc-cursor-hint[data-visible='true'] { opacity: 1; }
+  .hmc-cursor-hint[data-center='true'] { color: var(--hmc-copper); }
+  .hmc-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  @media (max-width: 640px) { .hmc-plot { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .hmc-cursor-hint, .hmc-controls, .hmc-controls button { transition: none; } }
+</style>
