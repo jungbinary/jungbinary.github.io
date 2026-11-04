@@ -14,12 +14,17 @@ import HmcPlot from './HmcPlot.astro'
       if (!root) return
       const variants = Array.from(root.querySelectorAll('[data-plot-variant]'))
       const names = variants.map((variant) => variant.getAttribute('data-plot-variant'))
+      const hopfProbability = 0
+      const automaticNames = hopfProbability === 0
+        ? names.filter((name) => name !== 'hopf')
+        : names
       let next = Math.random() < 0.4 ? 'minimax' : 'hmc'
       try {
         const previous = sessionStorage.getItem('jungbin-last-plot')
-        const index = names.indexOf(previous)
-        if (index >= 0) next = names[(index + 1) % names.length]
+        const index = automaticNames.indexOf(previous)
+        if (index >= 0) next = automaticNames[(index + 1) % automaticNames.length]
       } catch {}
+      if (hopfProbability > 0 && Math.random() < hopfProbability) next = 'hopf'
       const requested = new URLSearchParams(location.search).get('plot')
       if (names.includes(requested)) next = requested
       try { sessionStorage.setItem('jungbin-last-plot', next) } catch {}

@@ -3,18 +3,18 @@ export type Camera = { yaw: number; elevation: number }
 export type PhasePoint = { q: Position; p: Position }
 
 export const hmc = {
-  sigmaX: 1.05,
-  sigmaY: 0.42,
-  sigmaZ: 0.46,
-  bend: 0.58,
+  sigmaX: 0.95,
+  sigmaY: 0.5,
+  sigmaZ: 0.5,
+  bend: 0.42,
   flatten: 0.45,
-  twist: 0.95,
+  twist: 1,
   coupling: 0.25,
   stepSize: 0.04,
   playbackRate: 1.12,
   momentumDuration: 0.65,
   decisionDuration: 0.9,
-  initialCamera: { yaw: -0.48, elevation: 0.48 },
+  initialCamera: { yaw: -0.78, elevation: 0.72 },
 }
 
 // A genuinely three-dimensional, curved Gaussian target. Its triangular
@@ -124,6 +124,10 @@ function rotate(q: Position, camera: Camera) {
   }
 }
 
+function perspectiveScale(depth: number) {
+  return 1 / (1 - depth * 0.055)
+}
+
 // A fixed central-probability envelope keeps the camera stable as new samples
 // arrive. Tail samples remain in the chain and fade at the viewport boundary.
 const framingPoints: Position[] = []
@@ -140,8 +144,9 @@ export function createProjection(camera: Camera) {
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
   for (const point of framingPoints) {
     const p = rotate(point, camera)
-    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x)
-    minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y)
+    const perspective = perspectiveScale(p.depth)
+    minX = Math.min(minX, p.x * perspective); maxX = Math.max(maxX, p.x * perspective)
+    minY = Math.min(minY, p.y * perspective); maxY = Math.max(maxY, p.y * perspective)
   }
   const scale = Math.min(264 / (maxX - minX), 146 / (maxY - minY))
   return { scale, x: 160 - (minX + maxX) / 2 * scale, y: 84 - (minY + maxY) / 2 * scale }
@@ -150,7 +155,8 @@ export function createProjection(camera: Camera) {
 export type Projection = ReturnType<typeof createProjection>
 export function project(point: Position, camera: Camera, view: Projection) {
   const p = rotate(point, camera)
-  return { x: view.x + p.x * view.scale, y: view.y + p.y * view.scale, depth: p.depth }
+  const perspective = perspectiveScale(p.depth)
+  return { x: view.x + p.x * view.scale * perspective, y: view.y + p.y * view.scale * perspective, depth: p.depth }
 }
 
 export function pickPosition(x: number, y: number, samples: Position[], camera: Camera, view: Projection): Position {

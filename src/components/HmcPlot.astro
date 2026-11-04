@@ -15,26 +15,23 @@
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 6.5a5.3 5.3 0 1 1 .5 4.1M3 2.8v3.7h3.7" /></svg>
     </button>
   </div>
-  <span class="hmc-cursor-hint" aria-hidden="true" data-hmc-hint>Click!</span>
+  <span class="hmc-cursor-hint" aria-hidden="true" data-hmc-hint>Drag!</span>
   <span class="hmc-sr-only" id="hmc-description">
-    A cloud of retained Hamiltonian Monte Carlo samples reveals a curved,
-    three-dimensional probability distribution. Every axis is a sampled variable.
-    The faint cloud contains earlier HMC samples. A blue sphere follows a
-    proposed leapfrog trajectory; brighter stationary beads mark states retained
-    by the current chain. Gaussian momentum is refreshed
-    before each proposal, and a Metropolis test accepts or rejects its endpoint.
-    Rejection leaves the chain at its previous state. Drag to orbit the cloud,
-    click a sample to begin a new chain nearby, or click the center for Wikipedia.
-    Space pauses, Enter begins a new chain, arrow keys rotate, and R resets the view.
-    Below the cloud, a histogram of x accumulates the current chain's retained
-    states, including repeats after rejection. A faint curve shows its Gaussian
-    target marginal. Restarting the chain also clears this histogram.
+    The live Hamiltonian Monte Carlo chain starts at zero samples. A small,
+    faint reference cloud and its x histogram show retained warmup states for
+    context. A delicate wireframe traces one equal-density surface of the curved,
+    three-dimensional target. A blue sphere follows a proposed leapfrog
+    trajectory; brighter stationary beads mark states retained by the live
+    chain. Gaussian momentum is refreshed before each proposal, and a Metropolis
+    test accepts or rejects its endpoint. Rejection leaves the chain at its
+    previous state. Drag to orbit the cloud, or click the center for Wikipedia.
+    Space pauses, arrow keys rotate, and R resets the view. A faint curve shows
+    the Gaussian target marginal of x.
   </span>
-  <span class="hmc-sr-only" role="status" data-hmc-status></span>
 </figure>
 
 <script>
-  import { createChain, createProjection, hmc, pickPosition, project, proposalPosition, propose } from '../lib/hmc'
+  import { conditionalMeanY, createChain, createProjection, hmc, project, proposalPosition, propose } from '../lib/hmc'
   import { ballRadius } from '../lib/minimax'
   import type { Position } from '../lib/hmc'
 
@@ -44,23 +41,22 @@
     const hint = plot.querySelector<HTMLElement>('[data-hmc-hint]')
     const pauseButton = plot.querySelector<HTMLButtonElement>('[data-hmc-pause]')
     const resetButton = plot.querySelector<HTMLButtonElement>('[data-hmc-reset]')
-    const status = plot.querySelector<HTMLElement>('[data-hmc-status]')
     const context = canvas?.getContext('2d')
-    if (!surface || !canvas || !context || !hint || !pauseButton || !resetButton || !status) return
+    if (!surface || !canvas || !context || !hint || !pauseButton || !resetButton) return
 
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
     const desktop = matchMedia('(min-width: 641px)')
     const chain = createChain()
-    const reference = chain.samples.slice()
-    // Earlier HMC states establish the faint reference cloud. The current
-    // chain's counter and histogram start empty and grow with retained states.
+    const reference = chain.samples.filter((_, index) => index % 3 === 0)
+    // Warmup states provide a faint visual reference; the live sample count
+    // starts at zero and grows independently from this background cloud.
     const camera = { ...hmc.initialCamera }
-    let samples = chain.samples, recent: Position[] = []
+    let samples: Position[] = [], recent: Position[] = []
     let sampleCount = 0, proposal = propose(chain.q)
     let elapsed = 0, previousTime = 0, lastRender = 0, frame = 0
     let paused = false, inView = false, committed = false
     let drag: { id: number; x: number; y: number; yaw: number; elevation: number; moved: boolean } | null = null
-    let colors: string[] = [], inks: string[] = [], halos: HTMLCanvasElement[] = []
+    let colors: string[] = [], inks: string[] = [], halos: HTMLCanvasElement[] = [], referenceBeads: HTMLCanvasElement[] = []
     let dark = false
     let ballLight = '', ballEdge = ''
     let bead = document.createElement('canvas')
@@ -75,14 +71,50 @@
       histogram[bin]++
       return bin
     }
+    const removeSample = (q: Position) => {
+      if (q.x < histogramMin || q.x > histogramMax) return
+      const bin = Math.min(histogramBins - 1, Math.floor((q.x - histogramMin) / (histogramMax - histogramMin) * histogramBins))
+      histogram[bin] = Math.max(0, histogram[bin] - 1)
+    }
+    for (const q of reference) recordSample(q)
     const toneIndex = (q: Position) => Math.max(0, Math.min(23, Math.round((Math.tanh(q.x / 1.2) + 1) / 2 * 23)))
     const edgeFade = (x: number, y: number) => Math.max(0, Math.min(1, (x - 5) / 14, (315 - x) / 14, (y - 4) / 14, (173 - y) / 14))
+    const densityContours: { points: Position[]; closed: boolean }[] = []
+    const maxLiveSamples = 1100 - reference.length
+    const shellRadius = 2.05
+    const shellPoint = (x: number, angle: number, radial: number): Position => {
+      const residualY = hmc.sigmaY * radial * Math.cos(angle)
+      const residualZ = hmc.sigmaZ * radial * Math.sin(angle)
+      return {
+        x,
+        y: conditionalMeanY(x) + residualY,
+        z: hmc.twist * Math.sin(x) + hmc.coupling * residualY + residualZ,
+      }
+    }
+    for (let longitude = 0; longitude < 8; longitude++) {
+      const angle = Math.PI * 2 * longitude / 8
+      const points = Array.from({ length: 65 }, (_, index) => {
+        const standardizedX = shellRadius * (2 * index / 64 - 1)
+        const radial = Math.sqrt(Math.max(0, shellRadius ** 2 - standardizedX ** 2))
+        return shellPoint(standardizedX * hmc.sigmaX, angle, radial)
+      })
+      densityContours.push({ points, closed: false })
+    }
+    for (const standardizedX of [-1.7, -1.1, -0.55, 0, 0.55, 1.1, 1.7]) {
+      const radial = Math.sqrt(shellRadius ** 2 - standardizedX ** 2)
+      const points = Array.from({ length: 64 }, (_, index) =>
+        shellPoint(standardizedX * hmc.sigmaX, Math.PI * 2 * index / 64, radial))
+      densityContours.push({ points, closed: true })
+    }
 
     const commitProposal = () => {
       if (committed) return
       samples.push({ ...proposal.next }); recent.push({ ...proposal.next }); sampleCount++
       latestBin = recordSample(proposal.next)
-      if (samples.length > 1100) samples.shift()
+      if (samples.length > maxLiveSamples) {
+        const removed = samples.shift()
+        if (removed) removeSample(removed)
+      }
       if (recent.length > 24) recent.shift()
       history.push({ path: proposal.path, accepted: proposal.accepted })
       if (history.length > 4) history.shift()
@@ -100,19 +132,50 @@
       context.clearRect(0, 0, 320, 232)
       context.save(); context.beginPath(); context.rect(0, 0, 320, 176); context.clip()
 
-      const dots = samples.map(q => ({ q, p: project(q, camera, view) }))
+      context.lineWidth = 0.52; context.lineCap = 'round'; context.lineJoin = 'round'
+      context.strokeStyle = colors[1]
+      for (const contour of densityContours) {
+        const points = contour.points.map(point => project(point, camera, view))
+        const averageDepth = points.reduce((sum, point) => sum + point.depth, 0) / points.length
+        const near = Math.max(0, Math.min(1, (averageDepth + 2) / 4))
+        context.globalAlpha = (dark ? 0.055 : 0.065) + (dark ? 0.09 : 0.12) * near
+        context.setLineDash(averageDepth < 0 ? [1.2, 2.4] : [])
+        context.beginPath()
+        points.forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y))
+        if (contour.closed) context.closePath()
+        context.stroke()
+      }
+      context.setLineDash([]); context.globalAlpha = 1
+
+      const dots = [
+        ...reference.map(q => ({ q, p: project(q, camera, view), reference: true })),
+        ...samples.map(q => ({ q, p: project(q, camera, view), reference: false })),
+      ]
       dots.sort((a, b) => a.p.depth - b.p.depth)
-      // Broad, extremely soft kernels make the empirical density legible;
-      // each sharp core remains an actual retained state of the Markov chain.
-      for (const { q, p } of dots) {
+      // Generous, softly shaded reference beads keep individual states legible.
+      // Live samples retain their broader density halos as the chain grows.
+      for (const { q, p, reference: isReference } of dots) {
         const fade = edgeFade(p.x, p.y)
         if (!fade) continue
         const near = Math.max(0, Math.min(1, (p.depth + 3) / 6))
-        const tone = toneIndex(q), size = 9 + 7 * near
-        context.globalAlpha = fade * (dark ? 0.045 + 0.045 * near : 0.08 + 0.1 * near)
+        const depthScale = 1 / (1 - p.depth * 0.055)
+        const tone = toneIndex(q)
+        if (isReference) {
+          const size = (12 + 8 * near) * depthScale
+          context.globalAlpha = fade * (dark ? 0.13 + 0.13 * near : 0.16 + 0.16 * near)
+          context.drawImage(halos[tone], p.x - size / 2, p.y - size / 2, size, size)
+          const diameter = (2.7 + 1.7 * near) * depthScale
+          context.globalAlpha = fade * (dark ? 0.64 + 0.22 * near : 0.48 + 0.18 * near)
+          context.drawImage(referenceBeads[tone], p.x - diameter / 2, p.y - diameter / 2, diameter, diameter)
+          continue
+        }
+        const size = (9 + 7 * near) * depthScale
+        context.globalAlpha = fade * (dark ? 0.065 + 0.08 * near : 0.08 + 0.1 * near)
         context.drawImage(halos[tone], p.x - size / 2, p.y - size / 2, size, size)
-        context.fillStyle = inks[tone]; context.globalAlpha = fade * (dark ? 0.18 + 0.35 * near : 0.27 + 0.43 * near)
-        context.beginPath(); context.arc(p.x, p.y, dark ? 0.3 + 0.4 * near : 0.4 + 0.48 * near, 0, 2 * Math.PI); context.fill()
+        context.fillStyle = inks[tone]
+        context.globalAlpha = fade * (dark ? 0.21 + 0.4 * near : 0.27 + 0.43 * near)
+        const radius = dark ? 0.3 + 0.4 * near : 0.4 + 0.48 * near
+        context.beginPath(); context.arc(p.x, p.y, radius * depthScale, 0, 2 * Math.PI); context.fill()
       }
 
       const drawPath = (points: Position[], color: string, opacity: number, width: number, dashed = false) => {
@@ -132,7 +195,7 @@
       })
       history.forEach((past, i) => {
         if (past.path === proposal.path) return
-        drawPath(past.path, past.accepted ? colors[1] : colors[5], (dark ? 0.02 : 0.04) + (dark ? 0.065 : 0.1) * ((i + 1) / history.length) ** 2, 0.65, !past.accepted)
+        drawPath(past.path, past.accepted ? colors[1] : colors[5], (dark ? 0.045 : 0.07) + (dark ? 0.14 : 0.18) * ((i + 1) / history.length) ** 2, 0.8, !past.accepted)
       })
       const q = proposalPosition(proposal, progress)
       const count = Math.floor(progress * (proposal.path.length - 1))
@@ -194,10 +257,11 @@
       // every retained state of this chain, including repeated rejected states.
       const left = 48, width = 224, baseline = 218, height = 30
       const binWidth = (histogramMax - histogramMin) / histogramBins
-      const densities = Array.from(histogram, count => sampleCount ? count / (sampleCount * binWidth) : 0)
+      const histogramTotal = histogram.reduce((sum, count) => sum + count, 0)
+      const densities = Array.from(histogram, count => histogramTotal ? count / (histogramTotal * binWidth) : 0)
       const peak = Math.max(0.46, ...densities)
-      plot.dataset.histogramTotal = String(sampleCount)
-      plot.dataset.histogramBinned = String(histogram.reduce((sum, count) => sum + count, 0))
+      plot.dataset.histogramTotal = String(histogramTotal)
+      plot.dataset.histogramBinned = String(histogramTotal)
       const step = width / histogramBins
       for (let i = 0; i < histogramBins; i++) {
         const target = densities[i] / peak * height
@@ -234,15 +298,29 @@
       colors = ['--hmc-blue', '--hmc-jade', '--hmc-violet', '--hmc-rib', '--hmc-copper', '--hmc-rejected'].map(name => style.getPropertyValue(name).trim())
       const parse = (hex: string) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))
       const anchors = colors.slice(0, 3).map(parse)
-      inks = []; halos = []
+      inks = []; halos = []; referenceBeads = []
       for (let i = 0; i < 24; i++) {
         const t = i / 23 * 2, a = Math.min(1, Math.floor(t)), mix = t - a
-        const rgb = anchors[a].map((c, j) => Math.round(c + (anchors[a + 1][j] - c) * mix)).join(' ')
+        const channels = anchors[a].map((c, j) => Math.round(c + (anchors[a + 1][j] - c) * mix))
+        const rgb = channels.join(' ')
         inks.push(`rgb(${rgb})`)
         const sprite = document.createElement('canvas'); sprite.width = sprite.height = 32
         const c = sprite.getContext('2d')!, glow = c.createRadialGradient(16, 16, 0, 16, 16, 16)
         glow.addColorStop(0, `rgb(${rgb} / 0.8)`); glow.addColorStop(0.3, `rgb(${rgb} / 0.35)`); glow.addColorStop(1, `rgb(${rgb} / 0)`)
         c.fillStyle = glow; c.fillRect(0, 0, 32, 32); halos.push(sprite)
+        const dot = document.createElement('canvas'); dot.width = dot.height = 24
+        const d = dot.getContext('2d')!, pearl = d.createRadialGradient(8, 7, 0, 12, 12, 11)
+        const light = channels.map(channel => Math.round(channel + (255 - channel) * (dark ? 0.3 : 0.44))).join(' ')
+        const body = channels.map(channel => Math.round(channel + (255 - channel) * (dark ? 0 : 0.16))).join(' ')
+        const edge = channels.map(channel => Math.round(dark ? channel * 0.82 : channel + (255 - channel) * 0.1)).join(' ')
+        pearl.addColorStop(0, `rgb(${light})`); pearl.addColorStop(0.5, `rgb(${body})`); pearl.addColorStop(1, `rgb(${edge})`)
+        d.fillStyle = pearl; d.beginPath(); d.arc(12, 12, 11, 0, 2 * Math.PI); d.fill()
+        if (!dark) {
+          const softness = d.createRadialGradient(12, 12, 8.5, 12, 12, 11)
+          softness.addColorStop(0, '#fff'); softness.addColorStop(1, '#fff0')
+          d.globalCompositeOperation = 'destination-in'; d.fillStyle = softness; d.fillRect(0, 0, 24, 24)
+        }
+        referenceBeads.push(dot)
       }
       ballLight = style.getPropertyValue('--hmc-ball-light').trim(); ballEdge = style.getPropertyValue('--hmc-ball-edge').trim()
       bead = document.createElement('canvas'); bead.width = bead.height = 48
@@ -269,13 +347,6 @@
         if (!frame) frame = requestAnimationFrame(tick)
       } else { cancelAnimationFrame(frame); frame = 0; previousTime = 0 }
     }
-    const start = (initial: Position) => {
-      samples = reference.slice(); recent = [{ ...initial }]; sampleCount = 0; history.length = 0
-      histogram.fill(0); barHeights.fill(0); latestBin = -1
-      proposal = propose(initial); elapsed = 0; committed = false; previousTime = 0
-      status.textContent = `New HMC chain at x = ${initial.x.toFixed(2)}, y = ${initial.y.toFixed(2)}, z = ${initial.z.toFixed(2)}.`
-      render(); sync()
-    }
     const resetView = () => { Object.assign(camera, hmc.initialCamera); render() }
     const togglePause = () => {
       paused = !paused
@@ -287,7 +358,7 @@
     plot.addEventListener('pointermove', (event) => {
       if (event.pointerType === 'touch' || drag?.moved || (event.target instanceof Element && event.target.closest('button'))) { hideHint(); return }
       const center = event.target instanceof Element && !!event.target.closest('[data-hmc-center]')
-      hint.textContent = center ? 'Hamiltonian Monte Carlo' : 'Click!'; hint.dataset.center = String(center)
+      hint.textContent = center ? 'Hamiltonian Monte Carlo' : 'Drag!'; hint.dataset.center = String(center)
       const x = event.clientX + 14 + hint.offsetWidth > innerWidth - 8 ? event.clientX - hint.offsetWidth - 14 : event.clientX + 14
       const y = event.clientY + 16 + hint.offsetHeight > innerHeight - 8 ? event.clientY - hint.offsetHeight - 16 : event.clientY + 16
       hint.style.transform = `translate3d(${x}px, ${y}px, 0)`; hint.dataset.visible = 'true'
@@ -308,19 +379,14 @@
     })
     surface.addEventListener('pointerup', (event) => {
       if (!drag || drag.id !== event.pointerId) return
-      const moved = drag.moved; drag = null; plot.dataset.dragging = 'false'
+      drag = null; plot.dataset.dragging = 'false'
       if (surface.hasPointerCapture(event.pointerId)) surface.releasePointerCapture(event.pointerId)
-      if (moved) return
-      const bounds = canvas.getBoundingClientRect()
-      start(pickPosition((event.clientX - bounds.left) / bounds.width * 320,
-        (event.clientY - bounds.top) / bounds.height * 232, samples, camera, createProjection(camera)))
     })
     const cancelDrag = () => { drag = null; plot.dataset.dragging = 'false'; hideHint() }
     surface.addEventListener('pointercancel', cancelDrag); surface.addEventListener('lostpointercapture', cancelDrag)
     plot.addEventListener('pointerleave', hideHint)
     surface.addEventListener('keydown', (event) => {
       if (event.key === ' ') { event.preventDefault(); togglePause() }
-      else if (event.key === 'Enter') { event.preventDefault(); start(reference[Math.floor(Math.random() * reference.length)]) }
       else if (event.key.toLowerCase() === 'r') resetView()
       else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
         event.preventDefault(); camera.yaw += event.key === 'ArrowLeft' ? -0.12 : event.key === 'ArrowRight' ? 0.12 : 0
