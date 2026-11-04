@@ -334,7 +334,7 @@
     const tick = (now: number) => {
       const delta = previousTime ? Math.min((now - previousTime) / 1000, 0.1) : 0
       previousTime = now; elapsed += delta * hmc.playbackRate
-      if (!drag) camera.yaw += delta * 0.029
+      if (!drag) camera.yaw += delta * 0.085
       if (elapsed >= hmc.momentumDuration + proposal.duration) commitProposal()
       if (elapsed >= hmc.momentumDuration + proposal.duration + hmc.decisionDuration) {
         proposal = propose(proposal.next); elapsed = 0; committed = false
@@ -355,6 +355,13 @@
       render(); sync()
     }
     const hideHint = () => { hint.dataset.visible = 'false' }
+    const endDrag = () => {
+      if (!drag) return
+      const id = drag.id
+      drag = null; plot.dataset.dragging = 'false'
+      if (surface.hasPointerCapture(id)) surface.releasePointerCapture(id)
+      hideHint(); sync()
+    }
     plot.addEventListener('pointermove', (event) => {
       if (event.pointerType === 'touch' || drag?.moved || (event.target instanceof Element && event.target.closest('button'))) { hideHint(); return }
       const center = event.target instanceof Element && !!event.target.closest('[data-hmc-center]')
@@ -370,6 +377,8 @@
     })
     surface.addEventListener('pointermove', (event) => {
       if (!drag || drag.id !== event.pointerId) return
+      // Recover if the mouse was released outside the window or lost focus.
+      if (event.pointerType !== 'touch' && event.buttons === 0) { endDrag(); return }
       const dx = event.clientX - drag.x, dy = event.clientY - drag.y
       if (Math.hypot(dx, dy) > 4) drag.moved = true
       if (!drag.moved) return
@@ -377,13 +386,13 @@
       camera.elevation = Math.max(-0.35, Math.min(1.2, drag.elevation + dy * 0.006))
       plot.dataset.dragging = 'true'; hideHint(); render()
     })
-    surface.addEventListener('pointerup', (event) => {
+    const releaseDrag = (event: PointerEvent) => {
       if (!drag || drag.id !== event.pointerId) return
-      drag = null; plot.dataset.dragging = 'false'
-      if (surface.hasPointerCapture(event.pointerId)) surface.releasePointerCapture(event.pointerId)
-    })
-    const cancelDrag = () => { drag = null; plot.dataset.dragging = 'false'; hideHint() }
-    surface.addEventListener('pointercancel', cancelDrag); surface.addEventListener('lostpointercapture', cancelDrag)
+      endDrag()
+    }
+    window.addEventListener('pointerup', releaseDrag)
+    window.addEventListener('blur', endDrag)
+    surface.addEventListener('pointercancel', releaseDrag); surface.addEventListener('lostpointercapture', releaseDrag)
     plot.addEventListener('pointerleave', hideHint)
     surface.addEventListener('keydown', (event) => {
       if (event.key === ' ') { event.preventDefault(); togglePause() }
@@ -395,7 +404,7 @@
     })
     pauseButton.addEventListener('click', togglePause); resetButton.addEventListener('click', resetView)
     reducedMotion.addEventListener('change', () => { render(); sync() }); desktop.addEventListener('change', sync)
-    document.addEventListener('visibilitychange', () => { hideHint(); sync() })
+    document.addEventListener('visibilitychange', () => { if (document.hidden) endDrag(); hideHint(); sync() })
     const visibilityObserver = new IntersectionObserver(([entry]) => { inView = entry.isIntersecting; sync() })
     const resizeObserver = new ResizeObserver(resize), themeObserver = new MutationObserver(updateColors)
     const observe = () => {
