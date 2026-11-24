@@ -1,15 +1,17 @@
 ---
 import BaseLayout from './BaseLayout.astro'
+import '../styles/blog.css'
 
 const {
   title,
   description,
   location,
+  author,
   date,
   displayDate,
   topics = [],
-  lastUpdated = displayDate,
   math = false,
+  lastUpdated = displayDate,
 } = Astro.props
 
 const dateTime =
@@ -34,6 +36,8 @@ const visibleDate = new Intl.DateTimeFormat('en-US', {
     <header class="blog-hero">
       <h1>{title}</h1>
       <div class="blog-post-meta">
+        {author && <span>{author}</span>}
+        {author && <span aria-hidden="true">·</span>}
         {location && <span>{location}</span>}
         {location && <span aria-hidden="true">·</span>}
         <time datetime={dateTime}>{visibleDate}</time>

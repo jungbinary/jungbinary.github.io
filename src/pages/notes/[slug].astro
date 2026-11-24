@@ -1,16 +1,22 @@
 ---
 import BlogPostLayout from '../../layouts/BlogPostLayout.astro'
 import PdfReader from '../../components/PdfReader.astro'
-import pdfPosts from '../../data/pdfPosts.json'
+import { pdfPosts } from '../../data/pdf-posts'
 
 export function getStaticPaths() {
-  return pdfPosts.map((post) => ({
+  const pages = pdfPosts.map((post) => ({
     params: { slug: post.slug },
-    props: { post },
+    props: { post, legacy: false },
   }))
+  const bellman = pdfPosts.find(post => post.slug === 'reinforcement-learning')
+  if (bellman && !pdfPosts.some(post => post.slug === 'rl-bellman')) {
+    pages.push({ params: { slug: 'rl-bellman' }, props: { post: bellman, legacy: true } })
+  }
+  return pages
 }
 
-const { post } = Astro.props
+const { post, legacy } = Astro.props
+if (legacy) return Astro.redirect('/notes/reinforcement-learning/', 301)
 const displayDate = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',

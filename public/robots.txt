@@ -1,4 +1,2 @@
 User-agent: *
 Disallow: /images/image_jun.JPG
-Disallow: /notes/rl-bellman.pdf
-Disallow: /notes/game-blackwell.pdf

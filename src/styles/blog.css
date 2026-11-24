@@ -1,0 +1,59 @@
+/* Match the profile page's paper palette, restrained links, and Lora typography. */
+.blog-page {
+  max-width: 44rem;
+  margin-inline: auto;
+  padding: clamp(1.25rem, 4vw, 2.25rem) clamp(.75rem, 3.5vw, 1.75rem) 2.5rem;
+}
+.blog-page .blog-hero {
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--line-color);
+}
+.blog-page .blog-hero h1 {
+  font-size: clamp(1.6rem, 4vw, 2.15rem);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -.035em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.blog-page .blog-index-hero > p {
+  max-width: 57ch;
+  margin: .7rem 0 0;
+  font-size: 1rem;
+  line-height: 1.65;
+}
+.blog-page .blog-post-meta {
+  flex-wrap: wrap;
+  gap: .15rem .55rem;
+  margin-top: .65rem;
+  font-size: .8rem;
+}
+.blog-page .post-filters { border-color: var(--line-color); padding: .55rem 0; }
+.blog-page .post-feed-item { padding: 1.25rem 0; border-color: var(--line-color); }
+.post-feed-body .post-description {
+  margin: .25rem 0;
+  color: var(--nav-color);
+  font-size: .875rem;
+  line-height: 1.6;
+}
+.blog-page .post-feed-tags { margin-top: .35rem; }
+.blog-page .post-feed-empty { margin: 0; padding: 1.5rem 0; font-size: .95rem; }
+.blog-page .blog-index-quote { margin: 1.25rem 0 0; padding: .15rem 0 .15rem 1rem; border-color: var(--line-color); }
+.blog-index-quote blockquote p { margin: 0; color: var(--nav-color); font-size: .9rem; font-style: italic; line-height: 1.65; }
+.blog-page .blog-post-body { padding: 1.4rem 0 0; }
+.blog-post-body > p, .blog-post-body .academic-block p {
+  margin: 0 0 1em; color: var(--text-color); font-size: 1rem; line-height: 1.78;
+  overflow-wrap: break-word;
+}
+.blog-post-body p a, .blog-post-body li a { font-size: inherit; line-height: inherit; }
+.blog-post-body > h2, .blog-post-body > h3 { margin: 1.65em 0 .65em; line-height: 1.3; }
+.blog-post-body > :is(h2, h3):first-child { margin-top: 0; }
+.blog-post-body > h2 { font-size: 1.45rem; letter-spacing: -.02em; }
+.blog-post-body > h3 { font-size: 1.1rem; font-weight: 600; }
+.blog-post-body :is(pre, .blog-equation) { max-width: 100%; overflow-x: auto; }
+.blog-post-body .blog-references { border-color: var(--line-color); margin-top: 2.2rem; }
+.blog-post-body .back-to-posts { margin-top: 2.25rem; }
+@media (max-width: 640px) {
+  .blog-page .post-feed-item { gap: .2rem; }
+  .blog-page .blog-post-body { padding-top: 1rem; }
+}
