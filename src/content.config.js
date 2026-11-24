@@ -4,7 +4,9 @@ import { z } from 'astro/zod'
 
 const blog = defineCollection({
   loader: glob({
-    pattern: '**/[^_]*.md',
+    // The glob loader skips cache cleanup and file watching when it finds zero files.
+    // Matching the tracked directory marker keeps an empty archive in sync.
+    pattern: ['**/[^_]*.md', '.gitkeep'],
     base: './src/content/blog',
   }),
   schema: z.object({

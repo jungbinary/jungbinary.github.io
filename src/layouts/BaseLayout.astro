@@ -17,10 +17,26 @@ const {
   description = 'Jungbin Jun — incoming M.S. student at POSTECH researching trustworthy AI and conformal prediction.',
   activePage = 'about',
   lastUpdated = defaultLastUpdated,
+  lastUpdatedFallback = defaultLastUpdated,
   math = false,
   type = 'website',
 } = Astro.props
 
+function blogUpdatedMonth(value: string, fallback: string) {
+  // Date-only metadata is a calendar date, independent of the reader's timezone.
+  const calendarDate = (text: string) => {
+    const iso = /^(\d{4}-\d{2})(?:$|-)/.exec(text)
+    if (iso) return new Date(iso[1] + '-01T12:00:00')
+    const hasMonth = /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(text)
+    const year = fallback.match(/\b\d{4}\b/)?.[0]
+    return new Date(hasMonth && year && !/\b\d{4}\b/.test(text) ? text + ' ' + year : text)
+  }
+  const parsed = calendarDate(value)
+  const date = Number.isNaN(parsed.valueOf()) ? calendarDate(fallback) : parsed
+  return date.toLocaleString('en-US', { month: 'long' }) + ', ' + date.getFullYear()
+}
+
+const footerDate = activePage === 'blog' ? blogUpdatedMonth(lastUpdated, lastUpdatedFallback) : lastUpdated
 const fullTitle = title === 'Jungbin Jun' ? title : `${title} - Jungbin Jun`
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site)
 const socialImageUrl = new URL('/og.png', Astro.site)
@@ -96,12 +112,12 @@ const socialImageUrl = new URL('/og.png', Astro.site)
     />
   </head>
   <body>
-    <div class="site-shell">
+    <div class="site-shell" data-page={activePage}>
       <SiteHeader activePage={activePage} />
       <main>
         <slot />
       </main>
-      <SiteFooter lastUpdated={lastUpdated} />
+      <SiteFooter lastUpdated={footerDate} />
     </div>
 
     <script is:inline>

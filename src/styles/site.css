@@ -281,7 +281,7 @@ span.highlight {
 
 .site-tab.disabled,
 .site-tab.disabled:hover {
-  color: var(--nav-color);
+  color: var(--muted-color);
   cursor: not-allowed;
 }
 

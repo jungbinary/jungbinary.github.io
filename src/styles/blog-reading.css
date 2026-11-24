@@ -1,0 +1,236 @@
+.blog-page.blog-article {
+  box-sizing: border-box;
+  max-width: 45rem;
+  margin-inline: auto;
+  padding: clamp(1.85rem, 4.2vw, 3.25rem) clamp(1rem, 4vw, 2rem) 2.5rem;
+}
+
+.blog-article .blog-hero {
+  padding-bottom: clamp(1.25rem, 3vw, 1.875rem);
+}
+
+.blog-article .blog-hero h1 {
+  font-size: clamp(1.65rem, 3.4vw, 2.1rem);
+  line-height: 1.22;
+  letter-spacing: -.032em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.blog-article .blog-post-meta {
+  display: grid;
+  gap: .25rem;
+  margin-top: .6rem;
+  color: var(--nav-color);
+  font-size: .85rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.blog-post-topics {
+  display: flex;
+  gap: .75em;
+  margin: 0;
+  padding: 0;
+  font-size: .8rem;
+  list-style: none;
+}
+
+.blog-article .blog-post-body {
+  padding: clamp(1.6rem, 4vw, 2.5rem) 0 0;
+  color: var(--text-color);
+  font-size: 1rem;
+  line-height: 1.75;
+  letter-spacing: 0;
+}
+
+.blog-article .blog-post-body > :is(p, ol, ul),
+.blog-post-body :is(blockquote, li, .academic-block) > p {
+  margin-block: 0 1.15em;
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  overflow-wrap: break-word;
+}
+
+.blog-post-body > :is(ol, ul),
+.blog-post-body .academic-block :is(ol, ul) {
+  padding-inline-start: 1.5em;
+}
+
+.blog-post-body :is(ol, ul) > li + li {
+  margin-top: .4em;
+}
+
+.blog-post-body > :is(h2, h3, h4) {
+  margin: 1.9em 0 .6em;
+  line-height: 1.25;
+  letter-spacing: -.025em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.blog-post-body > h2 {
+  font-size: clamp(1.2rem, 2.4vw, 1.4rem);
+}
+
+.blog-post-body > h3 {
+  font-size: 1.1em;
+  font-weight: 500;
+}
+
+.blog-post-body > :is(h2, h3, h4):first-child,
+.blog-post-body > :is(link, style, template) + :is(h2, h3, h4) {
+  margin-top: 0;
+}
+
+.blog-post-body [id] {
+  scroll-margin-top: 5rem;
+}
+
+.blog-post-body :is(p, li, figcaption, td) a {
+  font-size: inherit;
+  line-height: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);
+  text-underline-offset: .18em;
+}
+
+.blog-post-body .academic-block {
+  margin-block: 1.75em;
+  padding: .1em 0 .1em clamp(.9em, 3vw, 1.45em);
+  border: 0;
+  border-inline-start: 2px solid color-mix(in srgb, var(--link-color) 60%, var(--line-color));
+  background: transparent;
+}
+
+.blog-post-body .academic-block > .academic-heading {
+  margin: 0 0 .45em;
+  color: var(--text-color);
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.blog-post-body .academic-block > :last-child,
+.blog-post-body blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.blog-post-body :is(.academic-proof, .academic-abstract) {
+  padding: 0;
+  border: 0;
+}
+
+.blog-post-body .academic-proof > .academic-heading {
+  font-style: italic;
+  font-weight: 500;
+}
+
+.blog-post-body .academic-proof::after {
+  color: var(--nav-color);
+}
+
+.blog-post-body > blockquote {
+  margin: 1.65em 0;
+  padding-inline-start: 1.15em;
+  border-inline-start: 1px solid var(--line-color);
+  color: var(--nav-color);
+  font-style: italic;
+  text-align: start;
+}
+
+.blog-post-body :is(.blog-equation, .katex-display, mjx-container[display="true"], pre) {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.blog-post-body .katex-display {
+  padding-block: .45em;
+}
+
+/* Keep both ends of an overwide aligned equation reachable when scrolling. */
+.blog-post-body .katex-display > .katex {
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 100%;
+}
+
+.blog-post-body .katex-html:has(> :is(.katex-tag, .tag)) {
+  padding-inline: 2.5em;
+}
+
+.blog-post-body pre {
+  box-sizing: border-box;
+  padding: 1em;
+  border: 1px solid var(--line-color);
+  font-size: .86em;
+  line-height: 1.6;
+}
+
+.blog-post-body figure {
+  margin: 2em 0;
+}
+
+.blog-post-body :is(figure, p) > img,
+.blog-post-body figure > a > img,
+.blog-post-body figure > svg {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
+
+.blog-post-body figcaption {
+  margin-top: .75em;
+  color: var(--nav-color);
+  font-size: .85em;
+  font-style: italic;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.blog-post-body :is(figure, .academic-block) > table,
+.blog-post-body > table {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 1.5em auto;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.blog-post-body table :is(th, td) {
+  padding: .45em .85em;
+  border-bottom: 1px solid var(--line-color);
+  font-size: .94rem;
+  line-height: 1.5;
+}
+
+.blog-post-body .blog-references {
+  margin-top: 2.75em;
+  padding-top: 1.2em;
+}
+
+.blog-post-body .blog-references h2 {
+  font-size: 1.2em;
+}
+
+.blog-post-body .blog-references li {
+  gap: .65em;
+  margin: 0 0 .65em;
+  color: var(--nav-color);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.blog-references li > p:only-child {
+  display: contents;
+}
+
+.blog-post-body .back-to-posts {
+  margin-top: 2.75em;
+  padding-top: 1em;
+  border-top: 1px solid var(--line-color);
+}

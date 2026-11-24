@@ -1,12 +1,10 @@
 ---
 import BaseLayout from './BaseLayout.astro'
-import '../styles/blog.css'
+import '../styles/blog-reading.css'
 
 const {
   title,
   description,
-  location,
-  author,
   date,
   displayDate,
   topics = [],
@@ -17,7 +15,7 @@ const {
 const dateTime =
   date instanceof Date ? date.toISOString().slice(0, 10) : String(date)
 const visibleDate = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
+  month: 'long',
   day: 'numeric',
   year: 'numeric',
   timeZone: 'UTC',
@@ -29,24 +27,20 @@ const visibleDate = new Intl.DateTimeFormat('en-US', {
   description={description}
   activePage="blog"
   lastUpdated={lastUpdated}
+  lastUpdatedFallback={dateTime}
   math={math}
   type="article"
 >
-  <article class="blog-page" data-copy-protected>
+  <article class="blog-page blog-article" data-copy-protected>
     <header class="blog-hero">
       <h1>{title}</h1>
       <div class="blog-post-meta">
-        {author && <span>{author}</span>}
-        {author && <span aria-hidden="true">·</span>}
-        {location && <span>{location}</span>}
-        {location && <span aria-hidden="true">·</span>}
         <time datetime={dateTime}>{visibleDate}</time>
-        {topics.length > 0 && <span aria-hidden="true">·</span>}
-        {
-          topics.map((topic: string) => (
-            <span class="blog-topic">#{topic}</span>
-          ))
-        }
+        {topics.length > 0 && (
+          <ul class="blog-post-topics topic-scroll" role="list" aria-label="Topics" tabindex="0">
+            {topics.map((topic: string) => <li class="blog-topic">#{topic}</li>)}
+          </ul>
+        )}
       </div>
     </header>
 
@@ -56,7 +50,7 @@ const visibleDate = new Intl.DateTimeFormat('en-US', {
       <div class="back-to-posts">
         <a href="/blog/" class="pill-link">
           <i class="fa fa-arrow-left" aria-hidden="true"></i>
-          Back to Posts
+          Back to posts
         </a>
       </div>
     </div>
