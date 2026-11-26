@@ -1,2 +1,4 @@
 User-agent: *
 Disallow: /images/image_jun.JPG
+
+Sitemap: https://jungbinary.github.io/sitemap.xml

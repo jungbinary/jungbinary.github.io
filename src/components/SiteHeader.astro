@@ -5,9 +5,8 @@ const currentPath = Astro.url.pathname
 type NavItem = {
   id: string
   label: string
-  href?: string
+  href: string
   target?: '_blank'
-  disabled?: boolean
 }
 
 const items: NavItem[] = [
@@ -18,23 +17,14 @@ const items: NavItem[] = [
     href: '/data/jungbin_cv.pdf',
     target: '_blank',
   },
-  { id: 'blog', label: 'blog', href: '/blog/', disabled: true },
+  { id: 'blog', label: 'blog', href: '/blog/' },
 ]
 ---
 
 <nav class="site-tabs" aria-label="Primary">
   {
     items.map((item) =>
-      item.disabled ? (
-        <span
-          class="site-tab disabled"
-          role="link"
-          aria-disabled="true"
-          aria-current={item.href === currentPath ? 'page' : undefined}
-        >
-          {item.label}
-        </span>
-      ) : item.id === activePage && item.href === currentPath ? (
+      item.id === activePage && item.href === currentPath ? (
         <span class="site-tab active" aria-current="page">
           {item.label}
         </span>

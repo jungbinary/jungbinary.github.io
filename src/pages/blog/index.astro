@@ -1,22 +1,19 @@
 ---
-import { getCollection } from 'astro:content'
 import BaseLayout from '../../layouts/BaseLayout.astro'
+import { getListedBlogPosts } from '../../data/blog-posts'
 import { pdfPosts } from '../../data/pdf-posts'
-import { blogExcerpt } from '../../lib/blog-excerpt'
 import '../../styles/blog.css'
 
-const posts = await getCollection('blog', ({ data }) => !data.draft && !data.hiddenFromIndex)
+const posts = await getListedBlogPosts()
 const entries = [
   ...posts.map((post) => ({
     title: post.data.title,
-    excerpt: blogExcerpt(post.rendered?.html, post.data.description),
     date: post.data.date,
     href: `/blog/${post.id}/`,
     tags: post.data.topics.length ? post.data.topics : ['post'],
   })),
   ...pdfPosts.map((post) => ({
     title: post.title,
-    excerpt: blogExcerpt(undefined, post.description),
     date: new Date(post.date),
     href: `/notes/${post.slug}/`,
     tags: post.tags,
@@ -70,7 +67,7 @@ const dateFormat = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numer
       <div class="archive-heading">
         <h2 id="archive-heading">posts</h2>
         {entries.length === 0 && <p class="archive-empty">No posts published yet.</p>}
-        {entries.length > 1 && topics.size > 0 && (
+        {topics.size > 0 && (
           <div class="archive-filters topic-scroll" role="group" aria-label="Filter posts by topic" hidden>
             <button type="button" data-filter="" aria-pressed="true">all</button>
             {Array.from(topics, ([key, label]) => (
@@ -85,13 +82,12 @@ const dateFormat = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numer
           {entries.map((entry) => (
             <li class="archive-entry" data-tags={JSON.stringify(entry.tags.map((t) => t.toLowerCase()))}>
               <h3><a href={entry.href}>{entry.title}</a></h3>
-              {entry.excerpt && <p class="entry-summary">{entry.excerpt}</p>}
               <div class="archive-entry-meta">
                 <time datetime={entry.date.toISOString().slice(0, 10)}>{dateFormat.format(entry.date)}</time>
                 {entry.tags.length > 0 && (
-                  <span class="entry-topics topic-scroll" role="group" aria-label="Topics" tabindex="0">
-                    {entry.tags.join(' · ')}
-                  </span>
+                  <ul class="entry-topics" role="list" aria-label="Topics">
+                    {entry.tags.map((tag) => <li>#{tag}</li>)}
+                  </ul>
                 )}
               </div>
             </li>

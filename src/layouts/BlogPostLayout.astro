@@ -9,6 +9,7 @@ const {
   displayDate,
   topics = [],
   math = false,
+  noindex = false,
   lastUpdated = displayDate,
 } = Astro.props
 
@@ -29,6 +30,7 @@ const visibleDate = new Intl.DateTimeFormat('en-US', {
   lastUpdated={lastUpdated}
   lastUpdatedFallback={dateTime}
   math={math}
+  noindex={noindex}
   type="article"
 >
   <article class="blog-page blog-article" data-copy-protected>

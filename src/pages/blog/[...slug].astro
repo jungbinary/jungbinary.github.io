@@ -23,6 +23,7 @@ const topics = post.data.topics ?? []
   displayDate={post.data.displayDate}
   topics={topics}
   lastUpdated={post.data.updated}
+  noindex={post.data.hiddenFromIndex}
   math
 >
   <Content />

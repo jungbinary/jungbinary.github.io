@@ -279,12 +279,6 @@ span.highlight {
   color: var(--link-hover-color);
 }
 
-.site-tab.disabled,
-.site-tab.disabled:hover {
-  color: var(--muted-color);
-  cursor: not-allowed;
-}
-
 .site-tab.active {
   color: var(--link-color);
 }

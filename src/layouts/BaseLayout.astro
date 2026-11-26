@@ -19,6 +19,7 @@ const {
   lastUpdated = defaultLastUpdated,
   lastUpdatedFallback = defaultLastUpdated,
   math = false,
+  noindex = false,
   type = 'website',
 } = Astro.props
 
@@ -49,6 +50,7 @@ const socialImageUrl = new URL('/og.png', Astro.site)
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="author" content="Jungbin Jun" />
     <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
     <meta
       name="google-site-verification"
       content="SSDsp-zlQNbaudw2xXZiJGgd4tecbTb9ALBDyH5NEpY"
@@ -80,18 +82,20 @@ const socialImageUrl = new URL('/og.png', Astro.site)
       })()
     </script>
 
-    <script
-      is:inline
-      async
-      src="https://www.googletagmanager.com/gtag/js?id=G-5SS15L5BV9"
-    ></script>
-    <script is:inline>
-      window.dataLayer = window.dataLayer || []
-      function gtag() {
-        window.dataLayer.push(arguments)
-      }
-      gtag('js', new Date())
-      gtag('config', 'G-5SS15L5BV9')
+    <script is:inline data-site-origin={Astro.site?.origin}>
+      (() => {
+        if (location.origin !== document.currentScript.dataset.siteOrigin) return
+        const measurementId = 'G-5SS15L5BV9'
+        window.dataLayer = window.dataLayer || []
+        window.gtag = function () { window.dataLayer.push(arguments) }
+        window.gtag('js', new Date())
+        window.gtag('config', measurementId)
+
+        const script = document.createElement('script')
+        script.async = true
+        script.src = 'https://www.googletagmanager.com/gtag/js?id=' + measurementId
+        document.head.appendChild(script)
+      })()
     </script>
     {
       math && (
